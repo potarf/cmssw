@@ -1,0 +1,16 @@
+
+int fibermin=0,fibermax=31;
+TFile *fileinput;
+const int numberofruns=5;
+int runnumber[numberofruns]={1000021569,1000021570,1000021571,1000021572,1000021573}
+  Double_t BV[numberofruns]={69.,68.5,68.,67.5,67.};
+char name[100],label[100];
+void runcompare(){
+
+  for (int irun=0;irun<numberofruns;irun++){
+    sprinf (name,"ana_averagePS_run%d_EMAP-kalinin_HTR1_phi.root",runnumber[irun]);
+    fileinput= TFile::Open(name);
+    filinput->Close();
+  }
+
+}

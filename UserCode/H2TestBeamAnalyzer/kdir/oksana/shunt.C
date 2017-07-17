@@ -1,0 +1,58 @@
+
+
+const int Numberofchannels=384;
+TH2F *pulseshape[384][25],*sVSs;
+TH1F *sh61;
+TGraphErrors *sigVSshunt[384];
+void shunt(){
+  char label[255];
+  for (unsigned int ichannel=0;ichannel<Numberofchannels;ichannel++){
+    for(unsigned int ishunt=0;ishunt<25;ishunt++){
+      sprintf(label,"channel%d_shunt%d",ichannel,ishunt);
+      pulseshape[ichannel][ishunt]=new TH2F(label,label,10,0,10,7000,0,70000);
+  
+    }
+    sprintf(label,"sig%d_vsshunt",ichannel);
+    sigVSshunt[ichannel]=new TGraphErrors();
+    sigVSshunt[ichannel]->SetTitle(label);
+    sigVSshunt[ichannel]->SetMarkerStyle(20);
+  }
+  sVSs= new TH2F("sigVSsh","sigVSsh",13,0,13,110,0,1.1);
+  sh61=new TH1F("shunt6/shunt1","sh61",500,0,1);
+float pulse[Numberofchannels][10];
+ TFile *fileinput;
+ char name[255];
+ int runnumber=1000024479;
+ sprintf(name,"ana_h2_tb_run%d_EMAP904.root",runnumber);
+ printf("%s\n",name);
+ fileinput = TFile::Open(name);
+ int ieta[Numberofchannels],phi[Numberofchannels],idep[Numberofchannels];
+ TTree *Events = (TTree*)fileinput->Get("QIE11Data/Events");
+ //Events->SetBranchAddress("numChs",&Numberofchannels_emap);
+ Events->SetBranchAddress("pulse",&pulse);
+ Events->SetBranchAddress("ieta",&ieta);
+ Events->SetBranchAddress("iphi",&phi);
+ Events->SetBranchAddress("depth",&idep);
+ //Events->GetEntry(1);
+ for(unsigned int i=0;i<Events->GetEntries();i++){
+   Events->GetEntry(i);
+   printf("event %d\n",i);
+   for (int channelN=0;channelN<Numberofchannels;channelN++){
+     for(int iTS=1;iTS<10;iTS++){
+        pulseshape[channelN][int(i/500)]->Fill(iTS,pulse[channelN][iTS]);
+   
+     }
+   }
+ }
+ for (int channelN=0;channelN<Numberofchannels;channelN++){
+   for(int ishunt=0;ishunt<16;ishunt++){
+     sigVSshunt[channelN]->SetPoint(ishunt,ishunt, pulseshape[channelN][ishunt]->ProfileX()->Integral()/pulseshape[channelN][0]->ProfileX()->Integral());
+     if ((pulseshape[channelN][6]->ProfileX()->Integral()/pulseshape[channelN][0]->ProfileX()->Integral()<0.29))sVSs->Fill(ishunt, pulseshape[channelN][ishunt]->ProfileX()->Integral()/pulseshape[channelN][0]->ProfileX()->Integral());
+   }
+   sh61->Fill(pulseshape[channelN][6]->ProfileX()->Integral()/pulseshape[channelN][0]->ProfileX()->Integral());
+   if ((pulseshape[channelN][6]->ProfileX()->Integral()/pulseshape[channelN][0]->ProfileX()->Integral()>0.29)&&(pulseshape[channelN][6]->ProfileX()->Integral()/pulseshape[channelN][0]->ProfileX()->Integral()<0.9)){printf("channel%d\n",channelN);}
+ 
+ }
+ fileinput->Close();
+ 
+}
