@@ -302,17 +302,23 @@ void TrackerGeometryAnalyzer
     if (detId.det() == DetId::Tracker) {
       switch (detId.subdetId()) {
         case PixelSubdetector::PixelBarrel:
-          if (analyzePXB_) analyzePXBDetUnit(detId, ss); break;
+          if (analyzePXB_) analyzePXBDetUnit(detId, ss);
+          break;
         case PixelSubdetector::PixelEndcap:
-          if (analyzePXE_) analyzePXEDetUnit(detId, ss); break;
+          if (analyzePXE_) analyzePXEDetUnit(detId, ss);
+          break;
         case StripSubdetector::TIB:
-          if (analyzeTIB_) analyzeTIBDetUnit(detId, ss); break;
+          if (analyzeTIB_) analyzeTIBDetUnit(detId, ss);
+          break;
         case StripSubdetector::TID:
-          if (analyzeTID_) analyzeTIDDetUnit(detId, ss); break;
+          if (analyzeTID_) analyzeTIDDetUnit(detId, ss);
+          break;
         case StripSubdetector::TOB:
-          if (analyzeTOB_) analyzeTOBDetUnit(detId, ss); break;
+          if (analyzeTOB_) analyzeTOBDetUnit(detId, ss);
+          break;
         case StripSubdetector::TEC:
-          if (analyzeTEC_) analyzeTECDetUnit(detId, ss); break;
+          if (analyzeTEC_) analyzeTECDetUnit(detId, ss);
+          break;
       }
     }
   }
@@ -420,13 +426,8 @@ void TrackerGeometryAnalyzer
     << "   max. number of ladders per layer:  " << pxbLadderIDs.size() << "\n"
     << "   max. number of layers  in PXB:     " << pxbLayerIDs.size();
 
-  int numPXBModules[pxbLayerIDs.size()][pxbLadderIDs.size()];
-
-  for (unsigned int i = 0; i < pxbLayerIDs.size(); ++i) {
-    for (unsigned int j = 0; j < pxbLadderIDs.size(); ++j) {
-      numPXBModules[i][j] = 0;
-    }
-  }
+  std::vector<std::vector<int> >
+    numPXBModules(pxbLayerIDs.size(), std::vector<int>(pxbLadderIDs.size(), 0));
 
   for (auto& det : trackerGeometry->dets()) {
     auto detId = det->geographicalId();
@@ -498,17 +499,15 @@ void TrackerGeometryAnalyzer
     << "   max. number of disks   per side:  " << pxeDiskIDs.size()   << "\n"
     << "   max. number of sides in PXE:      " << pxeSideIDs.size();
 
-  int numAlignablesPXE[pxeSideIDs.size()][pxeDiskIDs.size()][pxeBladeIDs.size()][pxePanelIDs.size()];
-
-  for (unsigned int i = 0; i < pxeSideIDs.size(); ++i) {
-    for (unsigned int j = 0; j < pxeDiskIDs.size(); ++j) {
-      for (unsigned int k = 0; k < pxeBladeIDs.size(); ++k) {
-        for (unsigned int l = 0; l < pxePanelIDs.size(); ++l) {
-          numAlignablesPXE[i][j][k][l] = 0;
-        }
-      }
-    }
-  }
+  std::vector<std::vector<std::vector<std::vector<int> > > >
+    numAlignablesPXE
+    (pxeSideIDs.size(), std::vector<std::vector<std::vector<int> > >
+     (pxeDiskIDs.size(), std::vector<std::vector<int> >
+      (pxeBladeIDs.size(), std::vector<int>
+       (pxePanelIDs.size(), 0)  // initialize everything with 0
+       )
+      )
+     );
 
   for (auto& det : trackerGeometry->dets()) {
     auto detId = det->geographicalId();

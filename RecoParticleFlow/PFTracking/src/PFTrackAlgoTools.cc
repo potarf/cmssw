@@ -1,4 +1,5 @@
 #include "RecoParticleFlow/PFTracking/interface/PFTrackAlgoTools.h"
+
 namespace PFTrackAlgoTools {
 
   double dPtCut(const reco::TrackBase::TrackAlgorithm& algo,const std::vector<double>& cuts,bool hltIterativeTracking = true){
@@ -23,7 +24,7 @@ namespace PFTrackAlgoTools {
       return cuts[4];
     case reco::TrackBase::muonSeededStepInOut:
     case reco::TrackBase::muonSeededStepOutIn:
-      return cuts[5];
+      return cuts.at(5);
     case reco::TrackBase::hltIter0:
     case reco::TrackBase::hltIter1:
     case reco::TrackBase::hltIter2:
@@ -35,7 +36,7 @@ namespace PFTrackAlgoTools {
     case reco::TrackBase::hltIterX:
       return  cuts[0];
     default:
-      return hltIterativeTracking ? cuts[6]:cuts[0];
+      return hltIterativeTracking ? cuts.at(5):cuts[0];
 
     }
   }
@@ -64,7 +65,7 @@ namespace PFTrackAlgoTools {
       return cuts[4];
     case reco::TrackBase::muonSeededStepInOut:
     case reco::TrackBase::muonSeededStepOutIn:
-      return cuts[5];
+      return cuts.at(5);
     case reco::TrackBase::hltIter0:
     case reco::TrackBase::hltIter1:
     case reco::TrackBase::hltIter2:
@@ -76,7 +77,7 @@ namespace PFTrackAlgoTools {
     case reco::TrackBase::hltIterX:
       return  cuts[0];
     default:
-      return hltIterativeTracking ? cuts[6]:cuts[0];
+      return hltIterativeTracking ? cuts.at(5):cuts[0];
 
     }
   }
@@ -245,6 +246,55 @@ bool step45(const reco::TrackBase::TrackAlgorithm& algo){
 
 bool step5(const reco::TrackBase::TrackAlgorithm& algo){
   return (algo==reco::TrackBase::tobTecStep||algo==reco::TrackBase::pixelLessStep);
+}
+
+#include "FWCore/MessageLogger/interface/MessageLogger.h"
+bool goodPtResolution(const reco::TrackRef& trackref, 
+		      const std::vector<double>& DPtovPtCut,
+		      const std::vector<unsigned>& NHitCut,
+		      bool useIterTracking,
+		      bool debug) {
+  //recheck that the track is high purity!
+  if (!trackref->quality(reco::TrackBase::highPurity))
+    return false;
+    
+  const double p = trackref->p();
+  const double pT = trackref->pt();
+  const double dpT = trackref->ptError();
+  const unsigned int nHit = 
+    trackref->hitPattern().trackerLayersWithMeasurement();
+  const unsigned int nLostHit = 
+    trackref->hitPattern().trackerLayersWithoutMeasurement(reco::HitPattern::TRACK_HITS);
+  const unsigned int lostHits = trackref->numberOfLostHits();
+  const double sigmaHad = std::sqrt(1.20*1.20/p+0.06*0.06) / (1.+lostHits);
+
+  // Protection against 0 momentum tracks
+  if ( p < 0.05 ) return false;
+ 
+  LogDebug("goodPtResolution") << " PFBlockAlgo: PFrecTrack->Track Pt= "
+			       << pT << " DPt = " << dpT << std::endl;
+  
+  
+  double dptCut = dPtCut(trackref->algo(),DPtovPtCut,useIterTracking);
+  unsigned int nhitCut = nHitCut(trackref->algo(),NHitCut,useIterTracking);
+  
+  if ( ( dptCut > 0. && 
+	 dpT/pT > dptCut*sigmaHad ) || 
+       nHit < nhitCut ) { 
+    LogDebug("goodPtResolution") << " PFBlockAlgo: skip badly measured track"
+				 << ", P = " << p 
+				 << ", Pt = " << pT 
+				 << " DPt = " << dpT 
+				 << ", N(hits) = " << nHit 
+				 << " (Lost : " << lostHits << "/" << nLostHit << ")"
+				 << ", Algo = " << trackref->algo()
+				 << std::endl;
+    LogDebug("goodPtResolution") << " cut is DPt/Pt < " << dptCut * sigmaHad << std::endl;
+    LogDebug("goodPtResolution") << " cut is NHit >= " << nhitCut << std::endl;
+    return false;
+  }
+
+  return true;
 }
 
 }

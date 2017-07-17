@@ -3,11 +3,11 @@ import FWCore.ParameterSet.Config as cms
 from TrackingTools.KalmanUpdators.KFUpdatorESProducer_cfi import *
 from TrackingTools.GeomPropagators.SmartPropagator_cff import *
 from RecoMuon.TrackingTools.MuonUpdatorAtVertex_cff import *
-Chi2EstimatorForMuonTrackLoader = cms.ESProducer("Chi2MeasurementEstimatorESProducer",
-    ComponentName = cms.string('Chi2EstimatorForMuonTrackLoader'),
-    nSigma = cms.double(3.0),
-    MaxChi2 = cms.double(100000.0)
-)
+import TrackingTools.KalmanUpdators.Chi2MeasurementEstimator_cfi
+Chi2EstimatorForMuonTrackLoader = TrackingTools.KalmanUpdators.Chi2MeasurementEstimator_cfi.Chi2MeasurementEstimator.clone()
+Chi2EstimatorForMuonTrackLoader.ComponentName = cms.string('Chi2EstimatorForMuonTrackLoader')
+Chi2EstimatorForMuonTrackLoader.nSigma = 3.0
+Chi2EstimatorForMuonTrackLoader.MaxChi2 = 100000.0
 
 import TrackingTools.TrackFitters.KFTrajectorySmoother_cfi
 KFSmootherForMuonTrackLoader = TrackingTools.TrackFitters.KFTrajectorySmoother_cfi.KFTrajectorySmoother.clone(
@@ -83,3 +83,14 @@ MuonTrackLoaderForCosmic = cms.PSet(
         TTRHBuilder = cms.string('WithAngleAndTemplate')
     )
 )
+
+# Switch back to GenericCPE until bias in template CPE gets fixed
+from Configuration.Eras.Modifier_phase1Pixel_cff import phase1Pixel
+for _loader in [MuonTrackLoaderForSTA, MuonTrackLoaderForGLB, MuonTrackLoaderForL2, MuonTrackLoaderForL3, MuonTrackLoaderForCosmic]:
+    phase1Pixel.toModify(_loader, TrackLoaderParameters = dict(TTRHBuilder = 'WithTrackAngle')) # FIXME
+
+# This customization will be removed once we get the templates for
+# phase2 pixel
+from Configuration.Eras.Modifier_phase2_tracker_cff import phase2_tracker
+phase2_tracker.toModify(MuonTrackLoaderForGLB, TrackLoaderParameters = dict(TTRHBuilder = 'WithTrackAngle')) # FIXME
+

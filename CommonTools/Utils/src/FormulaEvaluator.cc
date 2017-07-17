@@ -239,7 +239,7 @@ namespace {
         if( nullptr == leftEvaluatorInfo.evaluator.get() ) {
           return leftEvaluatorInfo;
         }
-        leftEvaluatorInfo.evaluator = std::make_shared<reco::formula::UnaryMinusEvaluator>( std::move(leftEvaluatorInfo.evaluator));
+        leftEvaluatorInfo.evaluator = std::make_shared<reco::formula::UnaryMinusEvaluator>( std::move(leftEvaluatorInfo.top));
         leftEvaluatorInfo.top = leftEvaluatorInfo.evaluator;
       }
       //Start with '('
@@ -255,7 +255,7 @@ namespace {
         }
         //need to account for closing parenthesis
         ++leftEvaluatorInfo.nextParseIndex;
-        leftEvaluatorInfo.evaluator->setPrecedenceToParenthesis();
+        leftEvaluatorInfo.top->setPrecedenceToParenthesis();
       } else {
         //Does not start with a '('
         int maxParseDistance = 0;
@@ -315,10 +315,7 @@ namespace {
           }
         }
       } else {
-        binaryEval->setLeftEvaluator(leftEvaluatorInfo.evaluator);
-        if (topNode->precedence() > binaryEval->precedence()) {
-          topNode = fullExpression.evaluator;
-        }
+        binaryEval->setLeftEvaluator(leftEvaluatorInfo.top);
       }
       fullExpression.top = topNode;
       return fullExpression;

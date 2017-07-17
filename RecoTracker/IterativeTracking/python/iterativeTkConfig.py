@@ -3,9 +3,18 @@
 # InitialStepPreSplitting is not counted as an iteration.
 import FWCore.ParameterSet.Config as cms
 
-_defaultEra = ""
-_nonDefaultEras = ["trackingLowPU", "trackingPhase1", "trackingPhase1PU70"]
+_defaultEraName = ""
+_nonDefaultEraNames = ["trackingLowPU", "trackingPhase1", "trackingPhase1PU70", "trackingPhase2PU140"]
+
+# name, postfix, era
+_defaultEra = (_defaultEraName, "", None)
+_nonDefaultEras = [
+    (_name, "_"+_name, getattr(__import__('Configuration.Eras.Modifier_'+_name+'_cff',globals(),locals(),[_name],0),_name)) \
+    for _name in _nonDefaultEraNames
+]
+
 _allEras = [_defaultEra] + _nonDefaultEras
+
 
 _iterations = [
     "InitialStep",
@@ -48,9 +57,21 @@ _iterations_trackingPhase1PU70 = [
     "PixelPairStep",
     "TobTecStep",
 ]
+_iterations_trackingPhase2PU140 = [
+    "InitialStep",
+    "HighPtTripletStep",
+    "LowPtQuadStep",
+    "LowPtTripletStep",
+    "DetachedQuadStep",
+    "PixelPairStep",
+]
 _iterations_muonSeeded = [
     "MuonSeededStepInOut",
     "MuonSeededStepOutIn",
+]
+#Phase2 : just muon Seed InOut is used in this moment
+_iterations_muonSeeded_trackingPhase2PU140 = [
+    "MuonSeededStepInOut",
 ]
 _multipleSeedProducers = {
     "MixedTripletStep": ["A", "B"],
@@ -61,6 +82,7 @@ _multipleSeedProducers_trackingLowPU = {
 }
 _multipleSeedProducers_trackingPhase1 = _multipleSeedProducers
 _multipleSeedProducers_trackingPhase1PU70 = _multipleSeedProducers_trackingLowPU
+_multipleSeedProducers_trackingPhase2PU140 = {}
 _oldStyleHasSelector = set([
     "InitialStep",
     "HighPtTripletStep",
@@ -80,8 +102,15 @@ _trackClusterRemoverBase = _trackClusterRemover.clone(
     minNumberOfLayersWithMeasBeforeFiltering = 0,
 )
 
-def postfix(era):
-    return "_"+era if era != _defaultEra else era
+#Phase2 : configuring the phase2 track Cluster Remover
+from RecoLocalTracker.SubCollectionProducers.phase2trackClusterRemover_cfi import phase2trackClusterRemover as _phase2trackClusterRemover
+_trackClusterRemoverBase_trackingPhase2PU140 = _phase2trackClusterRemover.clone(
+    maxChi2                                  = 9.0,
+    phase2pixelClusters                      = "siPixelClusters",
+    phase2OTClusters                         = "siPhase2Clusters",
+    TrackQuality                             = 'highPurity',
+    minNumberOfLayersWithMeasBeforeFiltering = 0,
+)
 
 def _modulePrefix(iteration):
     return iteration[0].lower()+iteration[1:]
@@ -108,22 +137,26 @@ def allEras():
 def nonDefaultEras():
     return _nonDefaultEras
 
-def createEarlySequence(era, modDict):
-    pf = postfix(era)
+def createEarlySequence(eraName, postfix, modDict):
     seq = cms.Sequence()
-    for it in globals()["_iterations"+pf]:
+    for it in globals()["_iterations"+postfix]:
         seq += modDict[it]
     return seq
 
-def iterationAlgos(era):
-    return [_modulePrefix(i) for i in globals()["_iterations"+postfix(era)] + _iterations_muonSeeded]
+def iterationAlgos(postfix, includeSequenceName=False):
+    muonVariable = "_iterations_muonSeeded"+postfix
+    iterations = globals()["_iterations"+postfix] + globals().get(muonVariable, _iterations_muonSeeded)
 
-def _seedOrTrackProducers(era, typ):
+    if includeSequenceName:
+        return [(_modulePrefix(i), i) for i in iterations]
+    else:
+        return [_modulePrefix(i) for i in iterations]
+
+def _seedOrTrackProducers(postfix, typ):
     ret = []
-    pf = postfix(era)
-    iters = globals()["_iterations"+pf]
+    iters = globals()["_iterations"+postfix]
     if typ == "Seeds":
-        multipleSeedProducers = globals()["_multipleSeedProducers"+pf]
+        multipleSeedProducers = globals()["_multipleSeedProducers"+postfix]
     else:
         multipleSeedProducers = None
     for i in iters:
@@ -133,23 +166,24 @@ def _seedOrTrackProducers(era, typ):
         else:
             ret.append(seeder)
 
-    for i in _iterations_muonSeeded:
+    for i in globals().get("_iterations_muonSeeded"+postfix, _iterations_muonSeeded):
         ret.append(_modulePrefix(i).replace("Step", typ))
 
     return ret
 
-def seedProducers(era):
-    return _seedOrTrackProducers(era, "Seeds")
+def seedProducers(postfix):
+    return _seedOrTrackProducers(postfix, "Seeds")
 
-def trackProducers(era):
-    return _seedOrTrackProducers(era, "Tracks")
+def trackProducers(postfix):
+    return _seedOrTrackProducers(postfix, "Tracks")
 
-def clusterRemoverForIter(iteration, era="", module=None):
+def clusterRemoverForIter(iteration, eraName="", postfix="", module=None):
     if module is None:
         module = _trackClusterRemoverBase.clone()
+    if eraName == "trackingPhase2PU140":
+        module = globals().get("_trackClusterRemoverBase"+postfix, _trackClusterRemoverBase)
 
-    pf = postfix(era)
-    iters = globals()["_iterations"+pf]
+    iters = globals()["_iterations"+postfix]
     try:
         ind = iters.index(iteration)
     except ValueError:
@@ -157,16 +191,16 @@ def clusterRemoverForIter(iteration, era="", module=None):
         return module
 
     if ind == 0:
-        raise Exception("Iteration %s is the first iteration in era %s, asking cluster remover configuration does not make sense" % (iteration, era))
+        raise Exception("Iteration %s is the first iteration in era %s, asking cluster remover configuration does not make sense" % (iteration, eraName))
     prevIter = iters[ind-1]
 
     customize = dict(
         trajectories          = _tracks(prevIter),
         oldClusterRemovalInfo = _clusterRemover(prevIter) if ind >= 2 else "", # 1st iteration does not have cluster remover
     )
-    if era == "trackingPhase1PU70":
+    if eraName in ["trackingPhase1PU70", "trackingPhase2PU140"]:
         customize["overrideTrkQuals"] = _classifier(prevIter, oldStyle=True) # old-style selector
-    elif era == "trackingLowPU":
+    elif eraName == "trackingLowPU":
         customize["overrideTrkQuals"] = _classifier(prevIter, oldStyle=True, oldStyleQualityMasks=True) # old-style selector with 'QualityMasks' instance label
     else:
         customize["trackClassifier"] = _classifier(prevIter)

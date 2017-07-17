@@ -48,3 +48,12 @@ trackerDrivenElectronSeeds = cms.EDProducer("GoodSeedProducer",
     PtThresholdSavePreId = cms.untracked.double(1.0),
     Min_dr = cms.double(0.2)
 )
+
+# Switch back to GenericCPE until bias in template CPE gets fixed
+from Configuration.Eras.Modifier_phase1Pixel_cff import phase1Pixel
+phase1Pixel.toModify(trackerDrivenElectronSeeds, TTRHBuilder  = 'WithTrackAngle') # FIXME
+
+# This customization will be removed once we get the templates for
+# phase2 pixel
+from Configuration.Eras.Modifier_phase2_tracker_cff import phase2_tracker
+phase2_tracker.toModify(trackerDrivenElectronSeeds, TTRHBuilder  = 'WithTrackAngle') # FIXME

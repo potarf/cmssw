@@ -3,6 +3,18 @@
 
 #include <unordered_map>
 #include <array>
+#include <functional>
+
+#include "DataFormats/DetId/interface/DetId.h"
+
+namespace std {
+  template<>
+  struct hash<DetId> {
+    std::size_t operator()(const DetId& id) const {      
+      return std::hash<uint32_t>()(id.rawId());
+    }
+  };
+}
 
 namespace hgc_digi {
 
@@ -17,6 +29,7 @@ namespace hgc_digi {
     //1st array=energy, 2nd array=energy weighted time-of-flight
     std::array<HGCSimHitData,2> hit_info;
     int thickness;
+    double size;
   };
   
   typedef std::unordered_map<uint32_t, HGCCellInfo > HGCSimHitDataAccumulator; 
