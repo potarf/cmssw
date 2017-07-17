@@ -3,6 +3,7 @@
 #include "CalibCalorimetry/HcalAlgos/interface/HcalTimeSlew.h"
 #include "RecoLocalCalo/HcalRecAlgos/src/HcalTDCReco.h"
 #include "RecoLocalCalo/HcalRecAlgos/interface/rawEnergy.h"
+#include "RecoLocalCalo/HcalRecAlgos/interface/HcalCorrectionFunctions.h"
 #include "DataFormats/METReco/interface/HcalCaloFlagLabels.h"
 
 #include <algorithm>
@@ -20,9 +21,9 @@ HcalSimpleRecAlgo::HcalSimpleRecAlgo(bool correctForTimeslew, bool correctForPul
   correctForPulse_(correctForPulse),
   phaseNS_(phaseNS), runnum_(0), setLeakCorrection_(false), puCorrMethod_(0)
 {  
-  pulseCorr_ = std::auto_ptr<HcalPulseContainmentManager>(new HcalPulseContainmentManager(MaximumFractionalError));
-  pedSubFxn_ = std::auto_ptr<PedestalSub>(new PedestalSub());
-  hltOOTpuCorr_ = std::auto_ptr<HcalDeterministicFit>(new HcalDeterministicFit());
+  pulseCorr_ = std::make_unique<HcalPulseContainmentManager>(MaximumFractionalError);
+  pedSubFxn_ = std::make_unique<PedestalSub>();
+  hltOOTpuCorr_ = std::make_unique<HcalDeterministicFit>();
 }
 
 
@@ -50,23 +51,30 @@ void HcalSimpleRecAlgo::setRecoParams(bool correctForTimeslew, bool correctForPu
 }
 
 void HcalSimpleRecAlgo::setpuCorrParams(bool   iPedestalConstraint, bool iTimeConstraint,bool iAddPulseJitter,
-					bool   iUnConstrainedFit,   bool iApplyTimeSlew,double iTS4Min, double iTS4Max,
-					double iPulseJitter,double iTimeMean,double iTimeSig,double iPedMean,double iPedSig,
-					double iNoise,double iTMin,double iTMax,
-					double its3Chi2,double its4Chi2,double its345Chi2,double iChargeThreshold, int iFitTimes) { 
+					bool iApplyTimeSlew,double iTS4Min, const std::vector<double> & iTS4Max,
+					double iPulseJitter,
+					double iTimeMean, double iTimeSig, double iTimeSigSiPM,
+					double iPedMean, double iPedSig, double iPedSigSiPM,
+					double iNoise, double iNoiseSiPM,
+					double iTMin,double iTMax,
+					const std::vector<double> & its4Chi2, int iFitTimes) {
   if( iPedestalConstraint ) assert ( iPedSig );
   if( iTimeConstraint ) assert( iTimeSig );
-  psFitOOTpuCorr_->setPUParams(iPedestalConstraint,iTimeConstraint,iAddPulseJitter,iUnConstrainedFit,iApplyTimeSlew,
-			       iTS4Min, iTS4Max, iPulseJitter,iTimeMean,iTimeSig,iPedMean,iPedSig,iNoise,iTMin,iTMax,its3Chi2,its4Chi2,its345Chi2,
-			       iChargeThreshold,HcalTimeSlew::Medium, iFitTimes);
+  psFitOOTpuCorr_->setPUParams(iPedestalConstraint,iTimeConstraint,iAddPulseJitter,iApplyTimeSlew,
+			       iTS4Min, iTS4Max, iPulseJitter,iTimeMean,iTimeSig,iTimeSigSiPM,iPedMean,iPedSig,iPedSigSiPM,iNoise,iNoiseSiPM,iTMin,iTMax,its4Chi2,
+			       HcalTimeSlew::Medium, iFitTimes);
+
+  psFitOOTpuCorr_->setChi2Term(1); // isHPD all the time
+
 //  int shapeNum = HPDShapev3MCNum;
 //  psFitOOTpuCorr_->setPulseShapeTemplate(theHcalPulseShapes_.getShape(shapeNum));
 }
 
-void HcalSimpleRecAlgo::setMeth3Params(int iPedSubMethod, float iPedSubThreshold, int iTimeSlewParsType, std::vector<double> iTimeSlewPars, double irespCorrM3) {
+void HcalSimpleRecAlgo::setMeth3Params( bool iApplyTimeSlew, float iPedSubThreshold, int iTimeSlewParsType, std::vector<double> iTimeSlewPars, double irespCorrM3) {
 
-  pedSubFxn_->init(((PedestalSub::Method)iPedSubMethod), 0, iPedSubThreshold, 0.0);
-  hltOOTpuCorr_->init((HcalTimeSlew::ParaSource)iTimeSlewParsType, HcalTimeSlew::Medium, (HcalDeterministicFit::NegStrategy)2, *pedSubFxn_, iTimeSlewPars,irespCorrM3);
+  pedSubFxn_->init(0, iPedSubThreshold, 0.0);
+  hltOOTpuCorr_->init((HcalTimeSlew::ParaSource)iTimeSlewParsType, HcalTimeSlew::Medium, iApplyTimeSlew, *pedSubFxn_, iTimeSlewPars,irespCorrM3);
+
 }
 
 void HcalSimpleRecAlgo::setForData (int runnum) { 
@@ -76,7 +84,8 @@ void HcalSimpleRecAlgo::setForData (int runnum) {
       if( runnum_ > 0 ){
          shapeNum = HPDShapev3DataNum;
       }
-      psFitOOTpuCorr_->setPulseShapeTemplate(theHcalPulseShapes_.getShape(shapeNum));
+      bool isHPD=true;
+      psFitOOTpuCorr_->setPulseShapeTemplate(theHcalPulseShapes_.getShape(shapeNum),isHPD);
    }
 }
 
@@ -107,18 +116,8 @@ void HcalSimpleRecAlgo::setBXInfo(const BunchXParameter* info,
     lenBunchCrossingInfo_ = lenInfo;
 }
 
-///Timeshift correction for HPDs based on the position of the peak ADC measurement.
-///  Allows for an accurate determination of the relative phase of the pulse shape from
-///  the HPD.  Calculated based on a weighted sum of the -1,0,+1 samples relative to the peak
-///  as follows:  wpksamp = (0*sample[0] + 1*sample[1] + 2*sample[2]) / (sample[0] + sample[1] + sample[2])
-///  where sample[1] is the maximum ADC sample value.
-static float timeshift_ns_hbheho(float wpksamp);
-
-///Same as above, but for the HF PMTs.
+///Timeshift correction for the HF PMTs.
 static float timeshift_ns_hf(float wpksamp);
-
-/// Ugly hack to apply energy corrections to some HB- cells
-static float eCorr(int ieta, int iphi, double ampl, int runnum);
 
 /// Leak correction 
 static float leakCorr(double energy);
@@ -324,6 +323,7 @@ namespace HcalSimpleRecAlgoImpl {
     bool leakCorrApplied = false;
     float t0 =0, t2 =0;
     float time = -9999;
+    float m3_time = -9999;
 
 // Disable method 1 inside the removePileup function this way!
 // Some code in removePileup does NOT do pileup correction & to make sure maximum share of code
@@ -354,7 +354,9 @@ namespace HcalSimpleRecAlgoImpl {
 
     // Note that uncorr_ampl is always set from outside of method 2!
     if( puCorrMethod == 2 ){
-      std::vector<double> correctedOutput;
+
+      bool useTriple=false;
+      float chi2=-1;
 
       CaloSamples cs;
       coder.adc2fC(digi,cs);
@@ -363,16 +365,12 @@ namespace HcalSimpleRecAlgoImpl {
         const int capid = digi[ip].capid();
         capidvec.push_back(capid);
       }
-      psFitOOTpuCorr->apply(cs, capidvec, calibs, correctedOutput);
-      if( correctedOutput.back() == 0 && correctedOutput.size() >1 ){
-	time = correctedOutput[1]; ampl = correctedOutput[0];
-      }
+      psFitOOTpuCorr->apply(cs, capidvec, calibs, ampl, time, useTriple,chi2);
     }
     
     // S. Brandt - Feb 19th : Adding Section for HLT
     // Run "Method 3" all the time.
     {
-      std::vector<double> hltCorrOutput;
 
       CaloSamples cs;
       coder.adc2fC(digi,cs);
@@ -381,13 +379,8 @@ namespace HcalSimpleRecAlgoImpl {
         const int capid = digi[ip].capid();
         capidvec.push_back(capid);
       }
-      hltOOTpuCorr->apply(cs, capidvec, calibs, digi, hltCorrOutput);
-      if( hltCorrOutput.size() > 1 ){
-        m3_ampl = hltCorrOutput[0];
-        if (puCorrMethod == 3) {
-	  time = hltCorrOutput[1]; ampl = hltCorrOutput[0];
-        }
-      }
+      hltOOTpuCorr->apply(cs, capidvec, calibs, digi, m3_ampl,m3_time);
+      if (puCorrMethod == 3) {ampl = m3_ampl; time=m3_time;}
     }
 
     // Temporary hack to apply energy-dependent corrections to some HB- cells
@@ -396,9 +389,9 @@ namespace HcalSimpleRecAlgoImpl {
       if (cell.subdet() == HcalBarrel) {
         const int ieta = cell.ieta();
         const int iphi = cell.iphi();
-        uncorr_ampl *= eCorr(ieta, iphi, uncorr_ampl, runnum);
-        ampl *= eCorr(ieta, iphi, ampl, runnum);
-        m3_ampl *= eCorr(ieta, iphi, m3_ampl, runnum);
+        uncorr_ampl *= hbminus_special_ecorr(ieta, iphi, uncorr_ampl, runnum);
+        ampl *= hbminus_special_ecorr(ieta, iphi, ampl, runnum);
+        m3_ampl *= hbminus_special_ecorr(ieta, iphi, m3_ampl, runnum);
       }
     }
 
@@ -431,6 +424,7 @@ namespace HcalSimpleRecAlgoImpl {
     float t0 =0, t2 =0;
     float time = -9999;
     bool useTriple = false;
+    float chi2 = -1;
     
     // Disable method 1 inside the removePileup function this way!
     // Some code in removePileup does NOT do pileup correction & to make sure maximum share of code
@@ -461,7 +455,6 @@ namespace HcalSimpleRecAlgoImpl {
     
     // Note that uncorr_ampl is always set from outside of method 2!
     if( puCorrMethod == 2 ){
-      std::vector<double> correctedOutput;
 
       CaloSamples cs;
       coder.adc2fC(digi,cs);
@@ -470,17 +463,12 @@ namespace HcalSimpleRecAlgoImpl {
 	const int capid = digi[ip].capid();
 	capidvec.push_back(capid);
       }
-      psFitOOTpuCorr->apply(cs, capidvec, calibs, correctedOutput);
-      if( correctedOutput.back() == 0 && correctedOutput.size() >1 ){
-	time = correctedOutput[1]; ampl = correctedOutput[0]; 
-	useTriple = correctedOutput[4];
-      }
+      psFitOOTpuCorr->apply(cs, capidvec, calibs, ampl, time, useTriple,chi2);
     }
     
     // S. Brandt - Feb 19th : Adding Section for HLT
     // Run "Method 3" all the time.
     {
-      std::vector<double> hltCorrOutput;
 
       CaloSamples cs;
       coder.adc2fC(digi,cs);
@@ -489,13 +477,12 @@ namespace HcalSimpleRecAlgoImpl {
 	const int capid = digi[ip].capid();
 	capidvec.push_back(capid);
       }
-      hltOOTpuCorr->apply(cs, capidvec, calibs, digi, hltCorrOutput);
-      if (hltCorrOutput.size() > 1) {
-        m3_ampl = hltCorrOutput[0];
-        if (puCorrMethod == 3) {
-	  time = hltCorrOutput[1]; ampl = hltCorrOutput[0];
-        }
-      }
+
+      float m3_time=0;
+
+      hltOOTpuCorr->apply(cs, capidvec, calibs, digi, m3_ampl, m3_time);
+      if (puCorrMethod == 3) { ampl = m3_ampl; time = m3_time; }
+
     }
 
     // Temporary hack to apply energy-dependent corrections to some HB- cells
@@ -504,9 +491,9 @@ namespace HcalSimpleRecAlgoImpl {
       if (cell.subdet() == HcalBarrel) {
 	const int ieta = cell.ieta();
 	const int iphi = cell.iphi();
-	uncorr_ampl *= eCorr(ieta, iphi, uncorr_ampl, runnum);
-        ampl *= eCorr(ieta, iphi, ampl, runnum);
-        m3_ampl *= eCorr(ieta, iphi, m3_ampl, runnum);
+	uncorr_ampl *= hbminus_special_ecorr(ieta, iphi, uncorr_ampl, runnum);
+        ampl *= hbminus_special_ecorr(ieta, iphi, ampl, runnum);
+        m3_ampl *= hbminus_special_ecorr(ieta, iphi, m3_ampl, runnum);
       }
     }
 
@@ -522,6 +509,7 @@ namespace HcalSimpleRecAlgoImpl {
       {
 	rh.setFlagField(1, HcalCaloFlagLabels::HBHEPulseFitBit);
       }
+    rh.setChiSquared(chi2);
     setRawEnergy(rh, static_cast<float>(uncorr_ampl));
     setAuxEnergy(rh, static_cast<float>(m3_ampl));
     return rh;
@@ -557,19 +545,6 @@ HcalCalibRecHit HcalSimpleRecAlgo::reconstruct(const HcalCalibDataFrame& digi, i
 									 HcalTimeSlew::Fast,
                                                                          runnum_, false, 0,
                                                                          bunchCrossingInfo_, lenBunchCrossingInfo_, puCorrMethod_, psFitOOTpuCorr_.get(),/*hlt*/hltOOTpuCorr_.get(),pedSubFxn_.get());
-}
-
-
-HBHERecHit HcalSimpleRecAlgo::reconstructHBHEUpgrade(const HcalUpgradeDataFrame& digi, int first, int toadd, const HcalCoder& coder, const HcalCalibrations& calibs) const {
-  HBHERecHit result = HcalSimpleRecAlgoImpl::reco<HcalUpgradeDataFrame,HBHERecHit>(digi, coder, calibs,
-                                                                                   first, toadd, correctForTimeslew_, correctForPulse_,
-                                                                                   pulseCorr_->get(digi.id(), toadd, phaseNS_),
-                                                                                   HcalTimeSlew::Medium, 0, false,
-                                                                                   hbhePileupCorr_.get(),
-                                                                                   bunchCrossingInfo_, lenBunchCrossingInfo_, puCorrMethod_, psFitOOTpuCorr_.get(),/*hlt*/hltOOTpuCorr_.get(),pedSubFxn_.get());
-  HcalTDCReco tdcReco;
-  tdcReco.reconstruct(digi, result);
-  return result;
 }
 
 
@@ -632,40 +607,8 @@ HFRecHit HcalSimpleRecAlgo::reconstructQIE10(const QIE10DataFrame& digi,
 }
 
 
-// NB: Upgrade HFRecHit method content is just the same as regular  HFRecHit
-//     with one exclusion: double time (second is dummy) in constructor 
-HFRecHit HcalSimpleRecAlgo::reconstructHFUpgrade(const HcalUpgradeDataFrame& digi,
-                                                 const int first,
-                                                 const int toadd,
-                                                 const HcalCoder& coder,
-                                                 const HcalCalibrations& calibs) const
-{
-  const HcalPulseContainmentCorrection* corr = pulseCorr_->get(digi.id(), toadd, phaseNS_);
-
-  double amp_fC, ampl, uncorr_ampl, maxA;
-  int nRead, maxI;
-  bool leakCorrApplied;
-  float t0, t2;
-
-  HcalSimpleRecAlgoImpl::removePileup(digi, coder, calibs, first, toadd,
-                                      correctForPulse_, corr, hfPileupCorr_.get(),
-                                      bunchCrossingInfo_, lenBunchCrossingInfo_,
-                                      &maxA, &ampl, &uncorr_ampl, &amp_fC, &nRead,
-                                      &maxI, &leakCorrApplied, &t0, &t2);
-
-  float time=-9999.f;
-  if (maxI > 0 && maxI < (nRead - 1))
-      time = HcalSimpleRecAlgoImpl::recoHFTime(digi,maxI,amp_fC,correctForTimeslew_,maxA,t0,t2) -
-             calibs.timecorr();
-
-  HFRecHit rh(digi.id(),ampl,time); // new RecHit gets second time = 0.
-  setRawEnergy(rh, static_cast<float>(uncorr_ampl));
-  return rh;
-}
-
-
 /// Ugly hack to apply energy corrections to some HB- cells
-float eCorr(int ieta, int iphi, double energy, int runnum) {
+float hbminus_special_ecorr(int ieta, int iphi, double energy, int runnum) {
 // return energy correction factor for HBM channels 
 // iphi=6 ieta=(-1,-15) and iphi=32 ieta=(-1,-7)
 // I.Vodopianov 28 Feb. 2011

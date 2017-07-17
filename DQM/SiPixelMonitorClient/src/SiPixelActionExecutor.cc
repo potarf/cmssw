@@ -392,7 +392,7 @@ void SiPixelActionExecutor::fillSummary(DQMStore::IBooker& iBooker, DQMStore::IG
 		(*iv)=="size"||(*iv)=="sizeX"||(*iv)=="sizeY"||(*iv)=="minrow"||
 		(*iv)=="maxrow"||(*iv)=="mincol"||(*iv)=="maxcol")
 	  prefix="SUMCLU";
-          if(currDir.find("Track")!=string::npos) prefix="SUMTRK";
+	if(currDir.find("Track")!=string::npos) prefix="SUMTRK";
 	else if((*iv)=="residualX"||(*iv)=="residualY")
 	  prefix="SUMTRK";
 	else if((*iv)=="ClustX"||(*iv)=="ClustY"||(*iv)=="nRecHits"||(*iv)=="ErrorX"||(*iv)=="ErrorY")
@@ -967,7 +967,7 @@ void SiPixelActionExecutor::fillGrandBarrelSummaryHistos(DQMStore::IBooker & iBo
 		    (*iv)=="size"||(*iv)=="sizeX"||(*iv)=="sizeY"||(*iv)=="minrow"||
 		    (*iv)=="maxrow"||(*iv)=="mincol"||(*iv)=="maxcol")
 	      prefix="SUMCLU";
-	      if(currDir.find("Track")!=string::npos) prefix="SUMTRK";
+	    if(currDir.find("Track")!=string::npos) prefix="SUMTRK";
 	    else if((*iv)=="residualX_mean"||(*iv)=="residualY_mean"||
 		    (*iv)=="residualX_RMS"||(*iv)=="residualY_RMS")
 	      prefix="SUMTRK";
@@ -1215,7 +1215,7 @@ void SiPixelActionExecutor::fillGrandEndcapSummaryHistos(DQMStore::IBooker& iBoo
 		    (*iv)=="size"||(*iv)=="sizeX"||(*iv)=="sizeY"||(*iv)=="minrow"||
 		    (*iv)=="maxrow"||(*iv)=="mincol"||(*iv)=="maxcol")
 	      prefix="SUMCLU";
-	      if(currDir.find("Track")!=string::npos) prefix="SUMTRK";
+	    if(currDir.find("Track")!=string::npos) prefix="SUMTRK";
 	    else if((*iv)=="residualX_mean"||(*iv)=="residualY_mean"||
 		    (*iv)=="residualX_RMS"||(*iv)=="residualY_RMS")
 	      prefix="SUMTRK";
@@ -1573,6 +1573,7 @@ void SiPixelActionExecutor::createOccupancy(DQMStore::IBooker & iBooker, DQMStor
   fillOccupancy(iBooker,iGetter, false);
   iBooker.cd();
   iGetter.cd();
+
   //std::cout<<"leaving SiPixelActionExecutor::createOccupancy..."<<std::endl;
 }
 
@@ -1629,6 +1630,57 @@ void SiPixelActionExecutor::fillOccupancy(DQMStore::IBooker & iBooker, DQMStore:
 
 //=============================================================================================================
 
+void SiPixelActionExecutor::normaliseAvDigiOcc(DQMStore::IBooker & iBooker, DQMStore::IGetter & iGetter){
+  //occupancyprinting cout<<"entering SiPixelActionExecutor::normaliseAvDigiOcc..."<<std::endl;
+  
+  iGetter.cd();
+
+  MonitorElement * roccupancyPlot = iGetter.get("Pixel/averageDigiOccupancy");
+  
+  float totalDigisBPIX = 0.;
+  float totalDigisFPIX = 0.;
+  for (int i = 1; i !=41; i++){
+    if (i < 33) totalDigisBPIX += roccupancyPlot->getBinContent(i);
+    else totalDigisFPIX += roccupancyPlot->getBinContent(i);
+  } 
+  float averageBPIXOcc = totalDigisBPIX/32.;
+  float averageFPIXOcc = totalDigisFPIX/8.;
+  for (int i = 1; i !=41; i++){
+    if (i < 33) roccupancyPlot->setBinContent(i,roccupancyPlot->getBinContent(i)/averageBPIXOcc);
+    else roccupancyPlot->setBinContent(i,roccupancyPlot->getBinContent(i)/averageFPIXOcc);
+  }
+  
+  iGetter.setCurrentFolder(iBooker.pwd());
+  
+}
+
+//=============================================================================================================
+
+void SiPixelActionExecutor::normaliseAvDigiOccVsLumi(DQMStore::IBooker & iBooker, DQMStore::IGetter & iGetter, int lumisec){
+
+  iGetter.cd();
+
+  MonitorElement* avgfedDigiOccvsLumi = iGetter.get("Pixel/avgfedDigiOccvsLumi");
+
+  float totalDigisBPIX = 0.; 
+  float totalDigisFPIX = 0.;
+  for (int i = 1; i !=41; i++){
+    if (i < 33) totalDigisBPIX += avgfedDigiOccvsLumi->getBinContent(lumisec,i);
+    else        totalDigisFPIX += avgfedDigiOccvsLumi->getBinContent(lumisec,i);
+  }  
+  float averageBPIXOcc = totalDigisBPIX/32.;
+  float averageFPIXOcc = totalDigisFPIX/8.;
+  for (int i = 1; i !=41; i++){
+    if (i < 33) avgfedDigiOccvsLumi->setBinContent(lumisec,i,avgfedDigiOccvsLumi->getBinContent(lumisec,i)/averageBPIXOcc);
+    else        avgfedDigiOccvsLumi->setBinContent(lumisec,i,avgfedDigiOccvsLumi->getBinContent(lumisec,i)/averageFPIXOcc);
+  }
+
+  iGetter.setCurrentFolder(iBooker.pwd());
+
+}
+
+//=============================================================================================================
+
 void SiPixelActionExecutor::bookEfficiency(DQMStore::IBooker & iBooker, bool isUpgrade){
   // Barrel
   iBooker.cd();
@@ -1661,17 +1713,17 @@ void SiPixelActionExecutor::bookEfficiency(DQMStore::IBooker & iBooker, bool isU
   iBooker.cd();
   iBooker.setCurrentFolder("Pixel/Endcap");
   if (!isUpgrade) {
-  if(Tier0Flag_){
-    HitEfficiency_Dp1 = iBooker.book2D("HitEfficiency_Dp1","Hit Efficiency in Endcap_Disk_p1;Blades;",24,-12.,12.,1,0.,1.);
-    HitEfficiency_Dp2 = iBooker.book2D("HitEfficiency_Dp2","Hit Efficiency in Endcap_Disk_p2;Blades;",24,-12.,12.,1,0.,1.);
-    HitEfficiency_Dm1 = iBooker.book2D("HitEfficiency_Dm1","Hit Efficiency in Endcap_Disk_m1;Blades;",24,-12.,12.,1,0.,1.);
-    HitEfficiency_Dm2 = iBooker.book2D("HitEfficiency_Dm2","Hit Efficiency in Endcap_Disk_m2;Blades;",24,-12.,12.,1,0.,1.);
-  }else{
-    HitEfficiency_Dp1 = iBooker.book2D("HitEfficiency_Dp1","Hit Efficiency in Endcap_Disk_p1;Blades;Modules",24,-12.,12.,7,1.,8.);
-    HitEfficiency_Dp2 = iBooker.book2D("HitEfficiency_Dp2","Hit Efficiency in Endcap_Disk_p2;Blades;Modules",24,-12.,12.,7,1.,8.);
-    HitEfficiency_Dm1 = iBooker.book2D("HitEfficiency_Dm1","Hit Efficiency in Endcap_Disk_m1;Blades;Modules",24,-12.,12.,7,1.,8.);
-    HitEfficiency_Dm2 = iBooker.book2D("HitEfficiency_Dm2","Hit Efficiency in Endcap_Disk_m2;Blades;Modules",24,-12.,12.,7,1.,8.);
-  }
+    if(Tier0Flag_){
+      HitEfficiency_Dp1 = iBooker.book2D("HitEfficiency_Dp1","Hit Efficiency in Endcap_Disk_p1;Blade;Panel",26,-13.,13.,2,0.5,2.5);
+      HitEfficiency_Dp2 = iBooker.book2D("HitEfficiency_Dp2","Hit Efficiency in Endcap_Disk_p2;Blade;Panel",26,-13.,13.,2,0.5,2.5);
+      HitEfficiency_Dm1 = iBooker.book2D("HitEfficiency_Dm1","Hit Efficiency in Endcap_Disk_m1;Blade;Panel",26,-13.,13.,2,0.5,2.5);
+      HitEfficiency_Dm2 = iBooker.book2D("HitEfficiency_Dm2","Hit Efficiency in Endcap_Disk_m2;;Blade;Panel",26,-13.,13.,2,0.5,2.5);   
+    }else{
+      HitEfficiency_Dp1 = iBooker.book2D("HitEfficiency_Dp1","Hit Efficiency in Endcap_Disk_p1;Blades;Modules",24,-12.,12.,7,1.,8.);
+      HitEfficiency_Dp2 = iBooker.book2D("HitEfficiency_Dp2","Hit Efficiency in Endcap_Disk_p2;Blades;Modules",24,-12.,12.,7,1.,8.);
+      HitEfficiency_Dm1 = iBooker.book2D("HitEfficiency_Dm1","Hit Efficiency in Endcap_Disk_m1;Blades;Modules",24,-12.,12.,7,1.,8.);
+      HitEfficiency_Dm2 = iBooker.book2D("HitEfficiency_Dm2","Hit Efficiency in Endcap_Disk_m2;Blades;Modules",24,-12.,12.,7,1.,8.);
+    }
   } else if (isUpgrade) {
     if(Tier0Flag_){
       HitEfficiency_Dp1 = iBooker.book2D("HitEfficiency_Dp1","Hit Efficiency in Endcap_Disk_p1;Blades;",28,-17.,11.,1,0.,1.);
@@ -1689,6 +1741,15 @@ void SiPixelActionExecutor::bookEfficiency(DQMStore::IBooker & iBooker, bool isU
       HitEfficiency_Dm3 = iBooker.book2D("HitEfficiency_Dm3","Hit Efficiency in Endcap_Disk_m3;Blades;Modules",28,-17.,11.,2,1.,3.);
     }
   }//endif(isUpgrade)
+  iBooker.cd();
+  iBooker.cd("Pixel/");
+  string bins[] = {"Layer1","Layer2","Layer3","Disk1+","Disk2+","Disk1-","Disk2-"};
+  HitEfficiencySummary = iBooker.book1D("HitEfficiencySummary","Hit efficiency per sub detector",7,0,7);
+  HitEfficiencySummary->setAxisTitle("Sub Detector", 1);
+  HitEfficiencySummary->setAxisTitle("Efficiency (%)",2);
+  for (int i = 1; i < 8; i++){
+    HitEfficiencySummary->setBinLabel(i,bins[i-1]);
+  }
 }
 
 //=============================================================================================================
@@ -1825,45 +1886,40 @@ void SiPixelActionExecutor::fillEfficiency(DQMStore::IBooker & iBooker, DQMStore
       for (vector<string>::const_iterator it = meVec.begin(); it != meVec.end(); it++) {
         string full_path = currDir + "/" + (*it);
         if(full_path.find("missing_")!=string::npos){ // If we have missing hits ME
-	  MonitorElement * me = iGetter.get(full_path);
-	  if (!me) continue;
-	  float missingHits = me->getEntries();
+	  MonitorElement * missing = iGetter.get(full_path);
+	  if (!missing) continue;
+	  //float missingHits = missing->getEntries();
 	  string new_path = full_path.replace(full_path.find("missing"),7,"valid");
-	  me = iGetter.get(new_path);
-	  if (!me) continue;
-	  float validHits = me->getEntries();
-	  float hitEfficiency = -1.;
-	  if(validHits + missingHits > 0.) hitEfficiency = validHits / (validHits + missingHits);
-	  int binx = 0; int biny = 1;
+	  MonitorElement * valid = iGetter.get(new_path);
+	  if (!valid) continue;
+	  //float validHits = valid->getEntries();
+	  int binx = 0; int biny = 0;
 	  binx = getBlade(dname);
-	  if(currDir.find("HalfCylinder_mI")!=string::npos || currDir.find("HalfCylinder_pI")!=string::npos){ binx = binx + 12;}
-	  else{ 
-	    if(binx==1) binx = 12;
-	    else if(binx==2) binx = 11;
-	    else if(binx==3) binx = 10;
-	    else if(binx==4) binx = 9;
-	    else if(binx==5) binx = 8;
-	    else if(binx==6) binx = 7;
-	    else if(binx==7) binx = 6;
-	    else if(binx==8) binx = 5;
-	    else if(binx==9) binx = 4;
-	    else if(binx==10) binx = 3;
-	    else if(binx==11) binx = 2;
-	    else if(binx==12) binx = 1;
-	  }
-	  if(currDir.find("Disk_1")!=string::npos && currDir.find("HalfCylinder_m")!=string::npos){
-	    HitEfficiency_Dm1 = iGetter.get("Pixel/Endcap/HitEfficiency_Dm1");
-	    if(HitEfficiency_Dm1) HitEfficiency_Dm1->setBinContent(binx, biny, (float)hitEfficiency);
-	  }else if(currDir.find("Disk_2")!=string::npos && currDir.find("HalfCylinder_m")!=string::npos){
-	    HitEfficiency_Dm2 = iGetter.get("Pixel/Endcap/HitEfficiency_Dm2");
-	    if(HitEfficiency_Dm2) HitEfficiency_Dm2->setBinContent(binx, biny, (float)hitEfficiency);
-	  }else if(currDir.find("Disk_1")!=string::npos && currDir.find("HalfCylinder_p")!=string::npos){
-	    HitEfficiency_Dp1 = iGetter.get("Pixel/Endcap/HitEfficiency_Dp1");
-	    if(HitEfficiency_Dp1) HitEfficiency_Dp1->setBinContent(binx, biny, (float)hitEfficiency);
-	  }else if(currDir.find("Disk_2")!=string::npos && currDir.find("HalfCylinder_p")!=string::npos){
-	    HitEfficiency_Dp2 = iGetter.get("Pixel/Endcap/HitEfficiency_Dp2");
-	    if(HitEfficiency_Dp2) HitEfficiency_Dp2->setBinContent(binx, biny, (float)hitEfficiency);
-          }
+	  if(currDir.find("HalfCylinder_mI")!=string::npos || currDir.find("HalfCylinder_pI")!=string::npos){ binx = binx + 14;}
+	  else{  binx = 13 -binx;}
+	  const int nPanel=2;
+	  for (int i=1; i<nPanel+1; i++){
+	    float hitEfficiency = -1.;
+	    float missingHits=0;
+	    float validHits=0;
+	    biny=i;
+	    missingHits=missing->getBinContent(i);
+	    validHits=valid->getBinContent(i);
+	    if(validHits + missingHits > 0.) hitEfficiency = validHits / (validHits + missingHits);
+	    if(currDir.find("Disk_1")!=string::npos && currDir.find("HalfCylinder_m")!=string::npos){
+	      HitEfficiency_Dm1 = iGetter.get("Pixel/Endcap/HitEfficiency_Dm1");
+	      if(HitEfficiency_Dm1) HitEfficiency_Dm1->setBinContent(binx, biny, (float)hitEfficiency);
+	    }else if(currDir.find("Disk_2")!=string::npos && currDir.find("HalfCylinder_m")!=string::npos){
+	      HitEfficiency_Dm2 = iGetter.get("Pixel/Endcap/HitEfficiency_Dm2");
+	      if(HitEfficiency_Dm2) HitEfficiency_Dm2->setBinContent(binx, biny, (float)hitEfficiency);
+	    }else if(currDir.find("Disk_1")!=string::npos && currDir.find("HalfCylinder_p")!=string::npos){
+	      HitEfficiency_Dp1 = iGetter.get("Pixel/Endcap/HitEfficiency_Dp1");
+	      if(HitEfficiency_Dp1) HitEfficiency_Dp1->setBinContent(binx, biny, (float)hitEfficiency);
+	    }else if(currDir.find("Disk_2")!=string::npos && currDir.find("HalfCylinder_p")!=string::npos){
+	      HitEfficiency_Dp2 = iGetter.get("Pixel/Endcap/HitEfficiency_Dp2");
+	      if(HitEfficiency_Dp2) HitEfficiency_Dp2->setBinContent(binx, biny, (float)hitEfficiency);
+	    }
+	  }//EndOfFor
 	}
       } 
     }else if(!isbarrel && dname.find("Blade_")!=string::npos && isUpgrade){ 
@@ -2077,4 +2133,49 @@ void SiPixelActionExecutor::fillEfficiency(DQMStore::IBooker & iBooker, DQMStore
     }
   } // end online/offline
   //cout<<"leaving SiPixelActionExecutor::fillEfficiency..."<<std::endl;
+}
+
+//=============================================================================================================
+
+void SiPixelActionExecutor::fillEfficiencySummary(DQMStore::IBooker & iBooker, DQMStore::IGetter & iGetter){
+  //cout<<"entering SiPixelActionExecutor::fillEfficiencySummary..."<<std::endl;
+  //First we get the summary plot"
+  if (!Tier0Flag_) return;
+  HitEfficiencySummary = iGetter.get("Pixel/HitEfficiencySummary");
+  //Now we will loop over the hit efficiency plots and fill it"
+  string hitEfficiencyPostfix[] = {"L1","L2","L3","Dp1","Dp2","Dm1","Dm2"};
+  std::vector<std::vector<float> > ignoreXBins = {{-4,2}, {4,4,-1,-3,3,-4,-3,-2,-1,-4,-3,-2,-1,1,-4},    {1,-4,1},{},{},{},{}};
+  std::vector<std::vector<float> > ignoreYBins = {{-9,-3},{1,16,1,-13,-13,-5,-5,-5,-5,-6,-6,-6,-6,-8,-8},{3,14,6},{},{},{},{}};
+  
+  for (int i = 0; i < 7; i++){
+    string subdetName = "Endcap/";
+    if (i < 3) subdetName = "Barrel/";
+    char meName [50];
+    sprintf(meName,"Pixel/%sHitEfficiency_%s",subdetName.c_str(),hitEfficiencyPostfix[i].c_str());
+    MonitorElement * tempHitEffMap = iGetter.get(meName);
+    float totalEff = 0.;
+    int totalBins = 0;
+    TH1 * hitEffMap = tempHitEffMap->getTH1();
+    for (int xBin = 1; xBin < tempHitEffMap->getNbinsX() + 1; xBin++){
+      if (fabs(hitEffMap->GetXaxis()->GetBinCenter(xBin)) < 1.) continue;
+      for (int yBin = 1; yBin < tempHitEffMap->getNbinsY() + 1; yBin++){
+	if (fabs(hitEffMap->GetYaxis()->GetBinCenter(yBin)) < 0.5) continue;
+	bool ignoreBin = false;
+	for (unsigned int j = 0; j < ignoreXBins[i].size(); j++){
+	  if (hitEffMap->GetXaxis()->GetBinCenter(xBin) == ignoreXBins[i][j] && hitEffMap->GetYaxis()->GetBinCenter(yBin) == ignoreYBins[i][j]){
+	    ignoreBin = true;
+	    break;
+	  }
+	}
+	if (ignoreBin) continue;
+	if (!(tempHitEffMap->getBinContent(xBin,yBin) < 0.)) totalEff += tempHitEffMap->getBinContent(xBin,yBin);
+	totalBins++;
+      }
+    }
+    float overalEff = 0.;
+    //    std::cout << i << " " << totalEff << " " << totalBins << std::endl;
+    if (totalBins > 0) overalEff = totalEff/float(totalBins);
+    HitEfficiencySummary->setBinContent(i+1,overalEff);
+  }
+  
 }

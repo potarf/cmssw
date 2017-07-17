@@ -98,6 +98,13 @@ HFShowerLibrary::HFShowerLibrary(std::string & name, const DDCompactView & cpv,
   nameBr           = branchPre + hadName + branchPost;
   hadBranch        = event->GetBranch(nameBr.c_str());
   if (verbose) hadBranch->Print();
+
+  v3version=false;
+  if ( emBranch->GetClassName() == std::string("vector<float>") ) {
+    v3version=true;
+  }
+  
+
   edm::LogInfo("HFShower") << "HFShowerLibrary:Branch " << emName 
 			   << " has " << emBranch->GetEntries() 
 			   << " entries and Branch " << hadName 
@@ -389,19 +396,46 @@ void HFShowerLibrary::getRecord(int type, int record) {
   photo->clear();
   if (type > 0) {
     if (newForm) {
-      hadBranch->SetAddress(&photo);
-      hadBranch->GetEntry(nrc+totEvents);
+      if ( !v3version ) {
+	hadBranch->SetAddress(&photo);
+	hadBranch->GetEntry(nrc+totEvents);
+      }
+      else{
+	std::vector<float> t;
+	std::vector<float> *tp=&t;
+	hadBranch->SetAddress(&tp);
+	hadBranch->GetEntry(nrc+totEvents);
+	unsigned int tSize=t.size()/5;
+	photo->reserve(tSize);
+	for ( unsigned int i=0; i<tSize; i++ ) {
+	  photo->push_back( HFShowerPhoton( t[i], t[1*tSize+i], t[2*tSize+i], t[3*tSize+i], t[4*tSize+i] ) );
+	}
+      }
     } else {
       hadBranch->SetAddress(&photon);
       hadBranch->GetEntry(nrc);
     }
   } else {
     if (newForm) {
-      emBranch->SetAddress(&photo);
+      if (!v3version) {
+	emBranch->SetAddress(&photo);
+	emBranch->GetEntry(nrc);
+      }
+      else{
+	std::vector<float> t;
+	std::vector<float> *tp=&t;
+	emBranch->SetAddress(&tp);
+	emBranch->GetEntry(nrc);
+	unsigned int tSize=t.size()/5;
+	photo->reserve(tSize);
+	for ( unsigned int i=0; i<tSize; i++ ) {
+	  photo->push_back( HFShowerPhoton( t[i], t[1*tSize+i], t[2*tSize+i], t[3*tSize+i], t[4*tSize+i] ) );
+	}
+      }
     } else {
       emBranch->SetAddress(&photon);
+      emBranch->GetEntry(nrc);
     }
-    emBranch->GetEntry(nrc);
   }
 #ifdef DebugLog
   int nPhoton = (newForm) ? photo->size() : photon.size();
@@ -450,7 +484,7 @@ void HFShowerLibrary::interpolate(int type, double pin) {
 		       << " GeV with " << nMomBin << " momentum bins and " 
 		       << evtPerBin << " entries/bin -- total " << totEvents;
 #endif
-  int irc[2];
+  int irc[2]={0,0};
   double w = 0.;
   double r = G4UniformRand();
 

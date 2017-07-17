@@ -21,7 +21,13 @@ simEcalDigis.UseFullReadout = cms.bool(True)
 # This is extra, since the configuration skips it anyway.  Belts and suspenders.
 pdigi.remove(simEcalPreshowerDigis)
 
-from Configuration.StandardSequences.Eras import eras
-if eras.fastSim.isChosen():
+from Configuration.Eras.Modifier_fastSim_cff import fastSim
+if fastSim.isChosen():
     # no need for the aliases for usual mixing
     del generalTracks,ecalPreshowerDigis,ecalDigis,hcalDigis,muonDTDigis,muonCSCDigis,muonRPCDigis
+else:
+#hack - our code is too fast at large scale - lets slow it down and idle for 15 seconds
+    cpuSpender=cms.EDAnalyzer("CPUSpender")
+    cpuSpender.secPerEvent=cms.untracked.int32(20)
+   
+    pdigi.insert(0,cpuSpender)

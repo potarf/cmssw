@@ -26,6 +26,7 @@ from DQMOffline.Trigger.HLTInclusiveVBFSource_cfi import *
 
 # tracking
 from DQMOffline.Trigger.TrackingMonitoring_cff import *
+from DQMOffline.Trigger.TrackingMonitoringPA_cff import*
 
 # strip
 from DQMOffline.Trigger.SiStrip_OfflineMonitoring_cff import *
@@ -73,9 +74,15 @@ dqmInfoHLTMon = cms.EDAnalyzer("DQMEventInfo",
 
 OfflineHLTMonitoring = cms.Sequence(
     dqmInfoHLTMon *
-    sistripMonitorHLTsequence * 
+    sistripMonitorHLTsequence * # strip
     BTVHLTOfflineSource *
-    trackingMonitorHLT
+    trackingMonitorHLT * # tracking
+    egmTrackingMonitorHLT # egm tracking
+    )
+OfflineHLTMonitoringPA = cms.Sequence(
+    dqmInfoHLTMon *
+    trackingMonitorHLT *
+    PAtrackingMonitorHLT  
     )
 
 triggerOfflineDQMSource =  cms.Sequence(offlineHLTSource)

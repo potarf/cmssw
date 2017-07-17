@@ -19,9 +19,7 @@
 #include "CalibFormats/HcalObjects/interface/HcalDbService.h"
 #include "SimCalorimetry/HcalSimAlgos/interface/HcalAmplifier.h"
 #include "SimCalorimetry/HcalSimAlgos/interface/HcalCoderFactory.h"
-#include "SimCalorimetry/HcalSimAlgos/interface/HBHEHitFilter.h"
-#include "SimCalorimetry/HcalSimAlgos/interface/HOHitFilter.h"
-#include "SimCalorimetry/HcalSimAlgos/interface/HFHitFilter.h"
+#include "SimCalorimetry/HcalSimAlgos/interface/HcalHitFilter.h"
 #include "SimCalorimetry/HcalSimAlgos/interface/ZDCHitFilter.h"
 #include "CondFormats/HcalObjects/interface/HcalPedestals.h"
 #include "CondFormats/HcalObjects/interface/HcalPedestalWidths.h"
@@ -29,7 +27,6 @@
 #include "CondFormats/HcalObjects/interface/HcalGainWidths.h"
 #include "SimDataFormats/CrossingFrame/interface/CrossingFrame.h"
 #include "SimCalorimetry/HcalSimAlgos/interface/HcalDigitizerTraits.h"
-#include "SimCalorimetry/HcalSimAlgos/interface/HcalHitCorrection.h"
 #include "Geometry/CaloGeometry/interface/CaloSubdetectorGeometry.h"
 #include "Geometry/CaloTopology/interface/HcalTopology.h"
 #include "Geometry/HcalTowerAlgo/interface/HcalHardcodeGeometryLoader.h"
@@ -56,8 +53,6 @@ private:
   void beginRun(edm::Run const&,  edm::EventSetup const&) override {}
   void analyze(edm::Event const&, edm::EventSetup const&) override;
   void endRun(edm::Run const&,  edm::EventSetup const&) override {}
-  void testHitCorrection(HcalHitCorrection*, MixCollection<PCaloHit>& , 
-			 CLHEP::HepRandomEngine*);
 
   HcalDbHardcode dbHardcode;
   std::vector<PCaloHit>  hits;
@@ -182,17 +177,11 @@ void HcalDigitizerTest::analyze(const edm::Event& iEvent,
   CaloHitResponse zdcResponse(&parameterMap, &zdcShapeIntegrator);
   HcalSiPMHitResponse hoSiPMResponse(&siPMParameterMap, &sipmShapes);
 
-  HcalHitCorrection hitCorrection(&parameterMap);
-  hbheResponse.setHitCorrection(&hitCorrection);
-  hoSiPMResponse.setHitCorrection(&hitCorrection);
-  hoResponse.setHitCorrection(&hitCorrection);
-  zdcResponse.setHitCorrection(&hitCorrection);
-
   CLHEP::HepJamesRandom randomEngine;
 
   HBHEHitFilter hbheHitFilter;
   HOHitFilter hoHitFilter;
-  HFHitFilter hfHitFilter(true);
+  HFHitFilter hfHitFilter;
   ZDCHitFilter zdcHitFilter;
 
   hbheResponse.setHitFilter(&hbheHitFilter);
@@ -258,7 +247,6 @@ void HcalDigitizerTest::analyze(const edm::Event& iEvent,
 
   MixCollection<PCaloHit> hitCollection(&crossingFrame);
 
-  testHitCorrection(&hitCorrection, hitCollection, &randomEngine);
   std::cout << "HBHE " << std::endl;
   hbheResponse.run(hitCollection, &randomEngine);
   std::cout << "SIPM " << std::endl;
@@ -277,22 +265,6 @@ void HcalDigitizerTest::analyze(const edm::Event& iEvent,
 
   std::cout << "ZDC Frames" << std::endl;
   std::copy(zdcResult->begin(), zdcResult->end(), std::ostream_iterator<ZDCDataFrame>(std::cout, "\n"));
-}
-
-void HcalDigitizerTest::testHitCorrection(HcalHitCorrection* correction, 
-					  MixCollection<PCaloHit>& hits, 
-					  CLHEP::HepRandomEngine* engine) {
-  correction->fillChargeSums(hits);
-  for (auto hitItr = hits.begin(); hitItr != hits.end(); ++hitItr) {
-    DetId detId((*hitItr).id());
-    if (detId.det()==DetId::Calo && 
-	detId.subdetId()==HcalZDCDetId::SubdetectorId) {
-      std::cout<<"ZDC -- ";
-    } 
-    std::cout << "HIT charge " << correction->charge(*hitItr) << " delay " 
-	      << correction->delay(*hitItr, engine)
-	      << " Timebin " << correction->timeBin(*hitItr) <<std::endl;
-  }
 }
 
 //define this as a plug-in

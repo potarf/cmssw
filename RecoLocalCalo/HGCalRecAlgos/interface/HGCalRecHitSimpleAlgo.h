@@ -10,6 +10,8 @@
 
 #include "RecoLocalCalo/HGCalRecAlgos/interface/HGCalRecHitAbsAlgo.h"
 #include "DataFormats/HGCDigi/interface/HGCDataFrame.h"
+#include "DataFormats/ForwardDetId/interface/HGCalDetId.h"
+#include "DataFormats/HcalDetId/interface/HcalDetId.h"
 #include <iostream>
 
 class HGCalRecHitSimpleAlgo : public HGCalRecHitAbsAlgo {
@@ -18,6 +20,10 @@ class HGCalRecHitSimpleAlgo : public HGCalRecHitAbsAlgo {
   HGCalRecHitSimpleAlgo() {
     adcToGeVConstant_ = -1;
     adcToGeVConstantIsSet_ = false;
+  }
+
+  virtual void setLayerWeights(const std::vector<float>& weights) override {
+    weights_ = weights;
   }
   
   virtual void setADCToGeVConstant(const float value) override {
@@ -38,8 +44,24 @@ class HGCalRecHitSimpleAlgo : public HGCalRecHitAbsAlgo {
         << "makeRecHit: adcToGeVConstant_ not set before calling this method!";
     }
     
-    //    float clockToNsConstant = 25;
-    float energy = uncalibRH.amplitude() * adcToGeVConstant_;
+    DetId baseid = uncalibRH.id();
+    unsigned layer = 0;
+    if( DetId::Hcal == baseid.det() && HcalEndcap == baseid.subdetId() ) {
+      layer =  HcalDetId(baseid).depth() + 40;
+    } else if ( DetId::Forward == baseid.det() && HGCEE == baseid.subdetId() ) {
+      layer = HGCalDetId(baseid).layer();
+    }else if ( DetId::Forward == baseid.det() && HGCHEF == baseid.subdetId() ) {
+      layer = HGCalDetId(baseid).layer() + 28;
+    } else {
+      throw cms::Exception("InvalidRecHit")
+	<< "HGCalRecHitSimpleAlgo encountered a non-HGCal det id: " << baseid.det() << ' ' << baseid.subdetId() << ' ' << baseid.rawId();
+    }
+
+    HGCalDetId hid(uncalibRH.id());
+
+
+    //    float clockToNsConstant = 25;    
+    float energy = uncalibRH.amplitude() * weights_[layer] * 0.001f;
     float time   = uncalibRH.jitter();
 
     //if(time<0) time   = 0; // fast-track digi conversion
@@ -56,5 +78,6 @@ class HGCalRecHitSimpleAlgo : public HGCalRecHitAbsAlgo {
 private:
   float adcToGeVConstant_;
   bool  adcToGeVConstantIsSet_;
+  std::vector<float> weights_;
 };
 #endif

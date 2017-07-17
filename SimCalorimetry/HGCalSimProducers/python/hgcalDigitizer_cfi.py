@@ -2,6 +2,8 @@ import FWCore.ParameterSet.Config as cms
 
 # Base configurations for HGCal digitizers
 eV_per_eh_pair = 3.62
+fC_per_ele     = 1.6020506e-4
+nonAgedNoises = [2100.0,2100.0,1600.0] #100,200,300 um (in electrons)
 
 # ECAL
 hgceeDigitizer = cms.PSet( 
@@ -18,7 +20,7 @@ hgceeDigitizer = cms.PSet(
     verbosity         = cms.untracked.uint32(0),
     digiCfg = cms.PSet( 
         keV2fC           = cms.double(0.044259), #1000 eV/3.62 (eV per e) / 6.24150934e3 (e per fC)
-        noise_fC         = cms.double(0.336),
+        noise_fC         = cms.vdouble( [x*fC_per_ele for x in nonAgedNoises] ), #100,200,300 um
         doTimeSamples    = cms.bool(False),                                         
         feCfg   = cms.PSet( 
             # 0 only ADC, 1 ADC with pulse shape, 2 ADC+TDC with pulse shape
@@ -70,7 +72,7 @@ hgchefrontDigitizer = cms.PSet(
     verbosity         = cms.untracked.uint32(0),
     digiCfg = cms.PSet(        
         keV2fC           = cms.double(0.044259), #1000 eV / 3.62 (eV per e) / 6.24150934e3 (e per fC)
-        noise_fC         = cms.double(0.336),                                                    
+        noise_fC         = cms.vdouble( [x*fC_per_ele for x in nonAgedNoises] ), #100,200,300 um
         doTimeSamples    = cms.bool(False),                                         
         feCfg   = cms.PSet( 
             # 0 only ADC, 1 ADC with pulse shape, 2 ADC+TDC with pulse shape
@@ -111,7 +113,7 @@ hgchefrontDigitizer = cms.PSet(
 # HCAL back (CALICE-like version, no pulse shape)
 hgchebackDigitizer = cms.PSet( 
     accumulatorType   = cms.string("HGCDigiProducer"),
-    hitCollection = cms.string("HGCHitsHEback"),
+    hitCollection = cms.string("HcalHits"),
     digiCollection = cms.string("HGCDigisHEback"),
     maxSimHitsAccTime = cms.uint32(100),
     bxTime            = cms.double(25),
@@ -122,7 +124,7 @@ hgchebackDigitizer = cms.PSet(
     verbosity         = cms.untracked.uint32(0),
     digiCfg = cms.PSet( 
         keV2MIP           = cms.double(1./1498.4),
-        noise_MIP         = cms.double(0.20),
+        noise_MIP         = cms.double(0.2),
         doTimeSamples = cms.bool(False),
         nPEperMIP = cms.double(11.0),
         nTotalPE  = cms.double(1156), #1156 pixels => saturation ~600MIP
@@ -136,8 +138,12 @@ hgchebackDigitizer = cms.PSet(
             # ADC saturation : in this case we use the same variable but fC=MIP
             adcSaturation_fC = cms.double(1024),
             # threshold for digi production : in this case we use the same variable but fC=MIP
-            adcThreshold_fC = cms.double(1.0)
+            adcThreshold_fC = cms.double(0.95)
             )
         )                              
     )
 
+#function to set noise to aged HGCal
+endOfLifeNoises = [2400.0,2250.0,1750.0]
+def HGCal_setEndOfLifeNoise(digitizer):
+    digitizer.digiCfg.noise_fC = cms.vdouble( [x*fC_per_ele for x in endOfLifeNoises] )

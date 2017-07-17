@@ -8,7 +8,7 @@
 class HcalSiPMShape : public CaloVShape {
 public:
 
-  HcalSiPMShape();
+  HcalSiPMShape(unsigned int signalShape=203);
   HcalSiPMShape(const HcalSiPMShape & other);
 
   virtual ~HcalSiPMShape() {}
@@ -17,14 +17,9 @@ public:
 
   virtual double timeToRise() const {return 3.5;}
 
-  static double gexp(double t, double A, double c, double t0, double s);
-  static double gexpIndefIntegral(double t, double A, double c, double t0, 
-				  double s);
-  static double gexpIntegral0Inf(double A, double c, double t0, double s);
-
 protected:
-  virtual double analyticPulseShape(double t) const;
-  void computeShape();
+  virtual double analyticPulseShape(double t, unsigned int signalShape) const;
+  void computeShape(unsigned int signalShape);
 
 private:
 

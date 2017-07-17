@@ -3,9 +3,7 @@
 
 #include "SimCalorimetry/HcalSimAlgos/interface/HcalDigitizerTraits.h"
 #include "SimCalorimetry/CaloSimAlgos/interface/CaloTDigitizer.h"
-#include "SimCalorimetry/HcalSimAlgos/interface/HcalUpgradeTraits.h"
 #include "SimCalorimetry/HcalSimAlgos/interface/HcalQIE1011Traits.h"
-#include "SimCalorimetry/HcalSimAlgos/interface/HFHitFilter.h"
 #include "SimCalorimetry/HcalSimAlgos/interface/HcalHitFilter.h"
 #include "SimCalorimetry/HcalSimAlgos/interface/ZDCHitFilter.h"
 #include "SimCalorimetry/HcalSimProducers/interface/HcalHitRelabeller.h"
@@ -24,7 +22,6 @@ class HcalAmplifier;
 class HPDIonFeedbackSim;
 class HcalCoderFactory;
 class HcalElectronicsSim;
-class HcalHitCorrection;
 class HcalTimeSlewSim;
 class HcalBaseSignalGenerator;
 class HcalShapes;
@@ -86,7 +83,6 @@ private:
   typedef CaloTDigitizer<HODigitizerTraits,CaloTDigitizerQIE8Run>   HODigitizer;
   typedef CaloTDigitizer<HFDigitizerTraits,CaloTDigitizerQIE8Run>   HFDigitizer;
   typedef CaloTDigitizer<ZDCDigitizerTraits,CaloTDigitizerQIE8Run>  ZDCDigitizer;
-  typedef CaloTDigitizer<HcalUpgradeDigitizerTraits,CaloTDigitizerQIE8Run> UpgradeDigitizer;
   typedef CaloTDigitizer<HcalQIE10DigitizerTraits,CaloTDigitizerQIE1011Run> QIE10Digitizer;
   typedef CaloTDigitizer<HcalQIE11DigitizerTraits,CaloTDigitizerQIE1011Run> QIE11Digitizer;
 
@@ -112,37 +108,29 @@ private:
 
   HPDIonFeedbackSim * theIonFeedback;
   HcalCoderFactory * theCoderFactory;
-  HcalCoderFactory * theUpgradeCoderFactory;
 
   HcalElectronicsSim * theHBHEElectronicsSim;
   HcalElectronicsSim * theHFElectronicsSim;
   HcalElectronicsSim * theHOElectronicsSim;
   HcalElectronicsSim * theZDCElectronicsSim;
-  HcalElectronicsSim * theUpgradeHBHEElectronicsSim;
-  HcalElectronicsSim * theUpgradeHFElectronicsSim;
   HcalElectronicsSim * theHFQIE10ElectronicsSim;
   HcalElectronicsSim * theHBHEQIE11ElectronicsSim;
 
-  HcalHitFilter theHBHEHitFilter;
-  HcalHitFilter theHBHEQIE11HitFilter;
+  HBHEHitFilter theHBHEHitFilter;
+  HBHEHitFilter theHBHEQIE11HitFilter;
   HFHitFilter   theHFHitFilter;
   HFHitFilter   theHFQIE10HitFilter;
-  HcalHitFilter theHOHitFilter;
-  HcalHitFilter theHOSiPMHitFilter;
+  HOHitFilter theHOHitFilter;
+  HOHitFilter theHOSiPMHitFilter;
   ZDCHitFilter  theZDCHitFilter;
 
-  HcalHitCorrection * theHitCorrection;
   HcalTimeSlewSim * theTimeSlewSim;
-  CaloVNoiseSignalGenerator * theNoiseGenerator;
-  CaloVNoiseHitGenerator * theNoiseHitGenerator;
 
   HBHEDigitizer * theHBHEDigitizer;
   HODigitizer* theHODigitizer;
   HODigitizer* theHOSiPMDigitizer;
   HFDigitizer* theHFDigitizer;
   ZDCDigitizer* theZDCDigitizer;
-  UpgradeDigitizer * theHBHEUpgradeDigitizer;
-  UpgradeDigitizer * theHFUpgradeDigitizer;
   QIE10Digitizer * theHFQIE10Digitizer;
   QIE11Digitizer * theHBHEQIE11Digitizer;
   HcalHitRelabeller* theRelabeller;
@@ -157,6 +145,8 @@ private:
 
   bool isZDC,isHCAL,zdcgeo,hbhegeo,hogeo,hfgeo;
   bool testNumbering_;
+  bool doHFWindow_;
+  bool killHE_;
 
   std::string hitsProducer_;
 

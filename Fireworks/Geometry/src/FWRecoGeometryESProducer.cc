@@ -91,10 +91,11 @@ FWRecoGeometryESProducer::produce( const FWRecoGeometryRecord& record )
 
   m_fwGeometry = std::make_shared<FWRecoGeometry>();
 
-  record.getRecord<GlobalTrackingGeometryRecord>().get( m_geomRecord );
-  
-  DetId detId( DetId::Tracker, 0 );
-  m_trackerGeom = (const TrackerGeometry*) m_geomRecord->slaveGeometry( detId );
+  if( m_tracker || m_muon ) {
+    record.getRecord<GlobalTrackingGeometryRecord>().get( m_geomRecord );  
+    DetId detId( DetId::Tracker, 0 );
+    m_trackerGeom = (const TrackerGeometry*) m_geomRecord->slaveGeometry( detId );
+  }
   
   if( m_tracker )
   {
@@ -116,15 +117,6 @@ FWRecoGeometryESProducer::produce( const FWRecoGeometryRecord& record )
   if( m_calo )
   {
     record.getRecord<CaloGeometryRecord>().get( m_caloGeom );
-    edm::ESHandle<HGCalGeometry> test;
-    for( const auto& name : hgcal_geom_names ) {
-      const auto& calogr = record.getRecord<CaloGeometryRecord>();
-      calogr.getRecord<IdealGeometryRecord>().get( name , test );
-      if( test.isValid() ) {
-	m_hgcalGeoms.push_back(test);
-      }
-    }
-
     addCaloGeometry();
   }
   
@@ -269,7 +261,9 @@ FWRecoGeometryESProducer::addRPCGeometry( void )
      m_geomRecord->slaveGeometry( detId );
      m_fwGeometry->extraDet.Add(new TNamed("RE4", "RPC endcap station 4"));
   }
-  catch (...) {}
+    catch (std::runtime_error &e) {
+       std::cerr << e.what() << std::endl; 
+    }
 }
 
 void
@@ -333,12 +327,14 @@ FWRecoGeometryESProducer::addGEMGeometry( void )
       m_geomRecord->slaveGeometry( detId );
       m_fwGeometry->extraDet.Add(new TNamed("GE2", "GEM endcap station 2"));
     }
-    catch (...) {}
+    catch (std::runtime_error &e) {
+       std::cerr << e.what() << std::endl; 
+    }
 
   }
   catch( cms::Exception &exception )
   {
-    edm::LogInfo("FWRecoGeometry") << "failed to produce GEM geometry " << exception.what() << std::endl;
+    edm::LogError("FWRecoGeometry") << " GEM geometry not found " << exception.what() << std::endl;
   }
 }
 
@@ -378,7 +374,7 @@ FWRecoGeometryESProducer::addME0Geometry( void )
   }
   catch( cms::Exception &exception )
   {
-    edm::LogInfo("FWRecoGeometry") << "failed to produce ME0 geometry " << exception.what() << std::endl;
+    edm::LogError("FWRecoGeometry") << " ME0 geometry not found " << exception.what() << std::endl;
   }
 }  
 
@@ -511,22 +507,18 @@ FWRecoGeometryESProducer::addTECGeometry( void )
 void
 FWRecoGeometryESProducer::addCaloGeometry( void )
 {
-  std::vector<DetId> vid = m_caloGeom->getValidDetIds(); // Calo
+  std::vector<DetId> vid = std::move(m_caloGeom->getValidDetIds()); // Calo
   for( std::vector<DetId>::const_iterator it = vid.begin(),
-					 end = vid.end();
-       it != end; ++it )
-  {
-    const CaloCellGeometry::CornersVec& cor( m_caloGeom->getGeometry( *it )->getCorners());
+	 end = vid.end();
+       it != end; ++it ) {
     unsigned int id = insert_id( it->rawId());
-    fillPoints( id, cor.begin(), cor.end());
-  }
-  for( const auto& hgc : m_hgcalGeoms ) {
-    const auto& hgcprod = *hgc;
-    const auto& vid = hgcprod.getValidDetIds(); 
-    for( const auto& id : vid ) {
-      uint32_t intid = insert_id( id.rawId() );
-      const auto& cor = hgcprod.getCorners( id );
-      fillPoints( intid, cor.begin(), cor.end() );
+    if( DetId::Forward != it->det() ) {
+      const CaloCellGeometry::CornersVec& cor =  m_caloGeom->getGeometry( *it )->getCorners();      
+      fillPoints( id, cor.begin(), cor.end());
+    } else {
+      const HGCalGeometry* geom = static_cast<const HGCalGeometry*>( m_caloGeom->getSubdetectorGeometry( *it ) );
+      const auto& cor = geom->getCorners( *it );
+      fillPoints( id, cor.begin(), cor.end() );
     }
   }
 }

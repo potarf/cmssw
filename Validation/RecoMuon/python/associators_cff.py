@@ -34,6 +34,16 @@ extractedGlobalMuons.selectionTags = ('AllGlobalMuons',)
 extractedGlobalMuons.trackType = "globalTrack"
 extractedMuonTracks_seq = cms.Sequence( extractedGlobalMuons )
 
+extractGemMuons = SimMuon.MCTruth.MuonTrackProducer_cfi.muonTrackProducer.clone()
+extractGemMuons.selectionTags = ('All',)
+extractGemMuons.trackType = "gemMuonTrack"
+extractGemMuonsTracks_seq = cms.Sequence( extractGemMuons )
+
+extractMe0Muons = SimMuon.MCTruth.MuonTrackProducer_cfi.muonTrackProducer.clone()
+extractMe0Muons.selectionTags = cms.vstring('All',)
+extractMe0Muons.trackType = "me0MuonTrack"
+extractMe0MuonsTracks_seq = cms.Sequence( extractMe0Muons )
+
 #
 # Configuration for Seed track extractor
 #
@@ -85,24 +95,6 @@ tpToGlbTrackAssociation = cms.EDProducer('TrackAssociatorEDProducer',
     associator = cms.InputTag('trackAssociatorByDeltaR'),
     label_tp = cms.InputTag('mix', 'MergedTrackTruth'),
     label_tr = cms.InputTag('extractedGlobalMuons')
-)
-
-tpToStaSETTrackAssociation = cms.EDProducer('TrackAssociatorEDProducer',
-    associator = cms.InputTag('trackAssociatorByDeltaR'),
-    label_tp = cms.InputTag('mix', 'MergedTrackTruth'),
-    label_tr = cms.InputTag('standAloneSETMuons','')
-)
-
-tpToStaSETUpdTrackAssociation = cms.EDProducer('TrackAssociatorEDProducer',
-    associator = cms.InputTag('trackAssociatorByDeltaR'),
-    label_tp = cms.InputTag('mix', 'MergedTrackTruth'),
-    label_tr = cms.InputTag('standAloneSETMuons','UpdatedAtVtx')
-)
-
-tpToGlbSETTrackAssociation = cms.EDProducer('TrackAssociatorEDProducer',
-    associator = cms.InputTag('trackAssociatorByDeltaR'),
-    label_tp = cms.InputTag('mix', 'MergedTrackTruth'),
-    label_tr = cms.InputTag('globalSETMuons')
 )
 
 tpToTevFirstTrackAssociation = cms.EDProducer('TrackAssociatorEDProducer',
@@ -173,9 +165,6 @@ tpToDisplacedTrkMuonAssociation = SimMuon.MCTruth.MuonAssociatorByHits_cfi.muonA
 tpToDisplacedStaSeedAssociation = SimMuon.MCTruth.MuonAssociatorByHits_cfi.muonAssociatorByHits.clone()
 tpToDisplacedStaMuonAssociation = SimMuon.MCTruth.MuonAssociatorByHits_cfi.muonAssociatorByHits.clone()
 tpToDisplacedGlbMuonAssociation = SimMuon.MCTruth.MuonAssociatorByHits_cfi.muonAssociatorByHits.clone()
-tpToStaSETMuonAssociation = SimMuon.MCTruth.MuonAssociatorByHits_cfi.muonAssociatorByHits.clone()
-tpToStaSETUpdMuonAssociation = SimMuon.MCTruth.MuonAssociatorByHits_cfi.muonAssociatorByHits.clone()
-tpToGlbSETMuonAssociation = SimMuon.MCTruth.MuonAssociatorByHits_cfi.muonAssociatorByHits.clone()
 tpToTevFirstMuonAssociation = SimMuon.MCTruth.MuonAssociatorByHits_cfi.muonAssociatorByHits.clone()
 tpToTevPickyMuonAssociation = SimMuon.MCTruth.MuonAssociatorByHits_cfi.muonAssociatorByHits.clone()
 tpToTevDytMuonAssociation = SimMuon.MCTruth.MuonAssociatorByHits_cfi.muonAssociatorByHits.clone()
@@ -183,6 +172,8 @@ tpToL3TkMuonAssociation = SimMuon.MCTruth.MuonAssociatorByHits_cfi.muonAssociato
 tpToL2MuonAssociation = SimMuon.MCTruth.MuonAssociatorByHits_cfi.muonAssociatorByHits.clone()
 tpToL2UpdMuonAssociation = SimMuon.MCTruth.MuonAssociatorByHits_cfi.muonAssociatorByHits.clone()
 tpToL3MuonAssociation = SimMuon.MCTruth.MuonAssociatorByHits_cfi.muonAssociatorByHits.clone()
+tpToME0MuonMuonAssociation = SimMuon.MCTruth.MuonAssociatorByHits_cfi.muonAssociatorByHits.clone()
+tpToGEMMuonMuonAssociation = SimMuon.MCTruth.MuonAssociatorByHits_cfi.muonAssociatorByHits.clone()
 
 tpToTkMuonAssociation.tpTag = 'mix:MergedTrackTruth'
 #tpToTkMuonAssociation.tracksTag = 'generalTracks'
@@ -241,21 +232,6 @@ tpToDisplacedGlbMuonAssociation.tracksTag = 'displacedGlobalMuons'
 tpToDisplacedGlbMuonAssociation.UseTracker = True
 tpToDisplacedGlbMuonAssociation.UseMuon = True
 
-tpToStaSETMuonAssociation.tpTag = 'mix:MergedTrackTruth'
-tpToStaSETMuonAssociation.tracksTag = 'standAloneSETMuons'
-tpToStaSETMuonAssociation.UseTracker = False
-tpToStaSETMuonAssociation.UseMuon = True
-
-tpToStaSETUpdMuonAssociation.tpTag = 'mix:MergedTrackTruth'
-tpToStaSETUpdMuonAssociation.tracksTag = 'standAloneSETMuons:UpdatedAtVtx'
-tpToStaSETUpdMuonAssociation.UseTracker = False
-tpToStaSETUpdMuonAssociation.UseMuon = True
-
-tpToGlbSETMuonAssociation.tpTag = 'mix:MergedTrackTruth'
-tpToGlbSETMuonAssociation.tracksTag = 'globalSETMuons'
-tpToGlbSETMuonAssociation.UseTracker = True
-tpToGlbSETMuonAssociation.UseMuon = True
-
 tpToTevFirstMuonAssociation.tpTag = 'mix:MergedTrackTruth'
 tpToTevFirstMuonAssociation.tracksTag = 'tevMuons:firstHit'
 tpToTevFirstMuonAssociation.UseTracker = True
@@ -302,6 +278,16 @@ tpToL3MuonAssociation.UseMuon = True
 tpToL3MuonAssociation.ignoreMissingTrackCollection = True
 tpToL3MuonAssociation.UseSplitting = False
 tpToL3MuonAssociation.UseGrouped = False
+
+tpToME0MuonMuonAssociation.tpTag = 'mix:MergedTrackTruth'
+tpToME0MuonMuonAssociation.tracksTag = 'extractMe0Muons'
+tpToME0MuonMuonAssociation.UseTracker = True
+tpToME0MuonMuonAssociation.UseMuon = False
+
+tpToGEMMuonMuonAssociation.tpTag = 'mix:MergedTrackTruth'
+tpToGEMMuonMuonAssociation.tracksTag = 'extractGemMuons'
+tpToGEMMuonMuonAssociation.UseTracker = True
+tpToGEMMuonMuonAssociation.UseMuon = False
 
 #
 # Associators for cosmics:
@@ -410,8 +396,6 @@ muonAssociationDisplaced_seq = cms.Sequence(
 
 muonAssociationRefit_seq = cms.Sequence(tpToStaRefitMuonAssociation+tpToStaRefitUpdMuonAssociation)
 
-muonAssociationSET_seq = cms.Sequence(tpToStaSETMuonAssociation+tpToStaSETUpdMuonAssociation+tpToGlbSETMuonAssociation)
-
 muonAssociationCosmic_seq = cms.Sequence(
     tpToTkCosmicSelMuonAssociation+ tpToTkCosmic1LegSelMuonAssociation
     +tpToStaCosmicSelMuonAssociation+tpToStaCosmic1LegSelMuonAssociation
@@ -424,8 +408,8 @@ muonAssociationHLT_seq = cms.Sequence(
 
 
 # fastsim has no hlt specific dt hit collection
-from Configuration.StandardSequences.Eras import eras
-if eras.fastSim.isChosen():
+from Configuration.Eras.Modifier_fastSim_cff import fastSim
+if fastSim.isChosen():
     _DTrechitTag = SimMuon.MCTruth.MuonAssociatorByHits_cfi.muonAssociatorByHits.DTrechitTag
     tpToL3TkMuonAssociation.DTrechitTag = _DTrechitTag
     tpToL2MuonAssociation.DTrechitTag = _DTrechitTag

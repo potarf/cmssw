@@ -1,5 +1,4 @@
 import FWCore.ParameterSet.Config as cms
-from Configuration.StandardSequences.Eras import eras
 
 from RecoLuminosity.LumiProducer.lumiProducer_cff import *
 from RecoLuminosity.LumiProducer.bunchSpacingProducer_cfi import *
@@ -34,6 +33,7 @@ from RecoBTag.Configuration.RecoBTag_cff import *
 #local reconstruction
 from RecoLocalTracker.Configuration.RecoLocalTracker_cff import *
 from RecoParticleFlow.Configuration.RecoParticleFlow_cff import *
+from RecoCTPPS.TotemRPLocal.totemRPLocalReconstruction_cff import *
 #
 # new tau configuration
 #
@@ -47,7 +47,22 @@ from RecoLocalCalo.CastorReco.CastorSimpleReconstructor_cfi import *
 from RecoTracker.SpecialSeedGenerators.cosmicDC_cff import *
 
 localreco = cms.Sequence(bunchSpacingProducer+trackerlocalreco+muonlocalreco+calolocalreco+castorreco)
-localreco_HcalNZS = cms.Sequence(trackerlocalreco+muonlocalreco+calolocalrecoNZS+castorreco)
+localreco_HcalNZS = cms.Sequence(bunchSpacingProducer+trackerlocalreco+muonlocalreco+calolocalrecoNZS+castorreco)
+
+_phase2_localreco = localreco.copyAndExclude([castorreco])
+_phase2_localreco_HcalNZS = localreco_HcalNZS.copyAndExclude([castorreco])
+from Configuration.Eras.Modifier_phase2_common_cff import phase2_common
+phase2_common.toReplaceWith(localreco, _phase2_localreco)
+phase2_common.toReplaceWith(localreco_HcalNZS, _phase2_localreco_HcalNZS)
+
+_ctpps_2016_localreco = localreco.copy()
+_ctpps_2016_localreco += totemRPLocalReconstruction
+from Configuration.Eras.Modifier_ctpps_2016_cff import ctpps_2016
+ctpps_2016.toReplaceWith(localreco, _ctpps_2016_localreco)
+
+_ctpps_2016_localreco_HcalNZS = localreco_HcalNZS.copy()
+_ctpps_2016_localreco_HcalNZS += totemRPLocalReconstruction
+ctpps_2016.toReplaceWith(localreco_HcalNZS, _ctpps_2016_localreco_HcalNZS)
 
 #
 # temporarily switching off recoGenJets; since this are MC and wil be moved to a proper sequence
@@ -61,14 +76,18 @@ globalreco_tracking = cms.Sequence(offlineBeamSpot*
                           siPixelClusterShapeCachePreSplitting* # unclear where to put this
                           standalonemuontracking*
                           trackingGlobalReco*
+                          hcalGlobalRecoSequence*
                           vertexreco)
 _globalreco_tracking_LowPU_Phase1PU70 = globalreco_tracking.copy()
 _globalreco_tracking_LowPU_Phase1PU70.replace(trackingGlobalReco, recopixelvertexing+trackingGlobalReco)
-eras.trackingLowPU.toReplaceWith(globalreco_tracking, _globalreco_tracking_LowPU_Phase1PU70)
-eras.trackingPhase1PU70.toReplaceWith(globalreco_tracking, _globalreco_tracking_LowPU_Phase1PU70)
+from Configuration.Eras.Modifier_trackingLowPU_cff import trackingLowPU
+trackingLowPU.toReplaceWith(globalreco_tracking, _globalreco_tracking_LowPU_Phase1PU70)
+from Configuration.Eras.Modifier_trackingPhase1PU70_cff import trackingPhase1PU70
+trackingPhase1PU70.toReplaceWith(globalreco_tracking, _globalreco_tracking_LowPU_Phase1PU70)
+from Configuration.Eras.Modifier_trackingPhase2PU140_cff import trackingPhase2PU140
+trackingPhase2PU140.toReplaceWith(globalreco_tracking, _globalreco_tracking_LowPU_Phase1PU70)
 
 globalreco = cms.Sequence(globalreco_tracking*
-                          hcalGlobalRecoSequence*
                           particleFlowCluster*
                           ecalClusters*
                           caloTowersRec*                          
@@ -78,6 +97,9 @@ globalreco = cms.Sequence(globalreco_tracking*
                           pfTrackingGlobalReco*
                           muoncosmicreco*
                           CastorFullReco)
+
+_phase2_globalreco = globalreco.copyAndExclude([CastorFullReco])
+phase2_common.toReplaceWith(globalreco, _phase2_globalreco)
 
 globalreco_plusPL= cms.Sequence(globalreco*ctfTracksPixelLess)
 
