@@ -52,8 +52,8 @@ process.tbunpack = cms.EDProducer("HcalTBObjectUnpacker",
         ConfigurationFile=cms.untracked.string('UserCode/H2TestBeamAnalyzer/configQADCTDC.txt'),
         HcalSlowDataFED = cms.untracked.int32(3),
         HcalTriggerFED = cms.untracked.int32(1),
-        HcalTDCFED = cms.untracked.int32(938),
-        HcalQADCFED = cms.untracked.int32(938),
+        HcalTDCFED = cms.untracked.int32(8),
+        HcalQADCFED = cms.untracked.int32(8),
             fedRawDataCollectionTag = cms.InputTag('source')
 )
 
