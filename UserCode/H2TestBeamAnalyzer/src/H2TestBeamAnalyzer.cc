@@ -359,6 +359,9 @@ H2TestBeamAnalyzer::~H2TestBeamAnalyzer()
 // ------------ method called for each event  ------------
 void H2TestBeamAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
+    int mark_bad = 0;
+    int mark_adc = 0;
+
     //
     //  Extracting All the Collections containing useful Info
     //
@@ -549,12 +552,12 @@ void H2TestBeamAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup
         for (int iTS=0; iTS<nTS; iTS++)
         {
             const HcalQIESample& sample = digi->sample(iTS);
-            const unsigned char adc = sample.adc();
+            unsigned char adc = sample.adc();
             const float fC = sample.nominal_fC();
-            
+
             _hbheInfo.pulse[numChs][iTS] = fC;
             _hbheInfo.pulse_adc[numChs][iTS] = adc;
-            if (iTS < 3)
+            if (iTS >= 1 && iTS <= 3)
             {
                 ped_fc += fC;
                 ped_adc += adc;
@@ -641,15 +644,15 @@ void H2TestBeamAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup
             
             _hfInfo.pulse[numChs][iTS] = fC;
             _hfInfo.pulse_adc[numChs][iTS] = adc;
-            if (iTS < 3)
+            if (i>=1 && i<=2)
             {
                 ped_fc += fC;
                 ped_adc += adc;
             }
         }
         
-        _hfInfo.ped[numChs] = ped_fc/3.;
-        _hfInfo.ped_adc[numChs] = ped_adc/3.;
+        _hfInfo.ped[numChs] = ped_fc/2.;
+        _hfInfo.ped_adc[numChs] = ped_adc/2.;
         
         _hfInfo.valid[numChs] = digi->validate();
 
@@ -721,9 +724,13 @@ void H2TestBeamAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup
         float ped_adc = 0;
         float ped_fc = 0;
 
+        mark_bad = 0;
+        mark_adc = 0;
+
         for(int i=0; i<nTS; ++i)
         {
-            const unsigned char adc = qie11dc[j][i].adc();
+            unsigned char adc = qie11dc[j][i].adc();
+            if (i==0) adc = 5;
             int tdc = qie11dc[j][i].tdc();
             int capid = qie11dc[j][i].capid();
             int soi = qie11dc[j][i].soi();
@@ -742,15 +749,33 @@ void H2TestBeamAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup
                 std::cout << "Sample " << i << ": ADC=" << adc << " Charge=" << charge << "fC" << " TDC=" << tdc << " Capid=" << capid
                           << " SOI=" << soi << std::endl;
 
+            if ((adc == 188 && tdc == 60) || (adc == 124 && tdc == 47) || (adc == 188 && tdc == 7) || (adc == 188 && tdc == 11) ||
+                (adc == 124 && tdc == 31) || (adc == 124 && tdc == 49)) {
+               mark_bad = 1;
+               mark_adc = adc;
+            }
+
             // compute ped from first 3 time samples
-            if (i<3){
+            if (i>=1 && i<=2){
                 ped_adc += adc;
                 ped_fc += charge;
             }
             
         }
-        ped_adc = ped_adc/3.;
-        ped_fc = ped_fc/3.; 
+        ped_adc = ped_adc/2.;
+        ped_fc = ped_fc/2.; 
+
+        for(int i=0; i<nTS-3; ++i)
+        {
+            if (_qie11Info.pulse_adc[j][i+1] == _qie11Info.pulse_adc[j][i] &&
+		_qie11Info.pulse_adc[j][i+2] == _qie11Info.pulse_adc[j][i] &&
+                _qie11Info.pulse_adc[j][i+3] == _qie11Info.pulse_adc[j][i] &&
+		_qie11Info.pulse_adc[j][i] > 100 && mark_bad == 0) {
+			mark_bad = 2;
+			mark_adc = _qie11Info.pulse_adc[j][i];
+                } 
+        }
+
 
         if (_verbosity>0)
             std::cout << "The pedestal for this channel is " << ped_adc << "ADC counts and " << ped_fc << " fC" << std::endl;
@@ -770,13 +795,17 @@ void H2TestBeamAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup
     _qie11Info.numChs = qie11dc.size();
     _qie11Info.numTS = qie11dc.samples();
 
-    _treeHBHE->Fill();
-    _treeHF->Fill();
-    _treeQIE11->Fill();
-    _treeTriggers->Fill();
-    _treeWC->Fill();
-    _treeBC->Fill();
-    _treeTiming->Fill();
+    if (mark_bad == 0) {
+      _treeHBHE->Fill();
+      _treeHF->Fill();
+      _treeQIE11->Fill();
+      _treeTriggers->Fill();
+      _treeWC->Fill();
+      _treeBC->Fill();
+      _treeTiming->Fill();
+    } else {
+      std::cout << "Mark event "<<EventNumber<<" bad, code = "<<mark_bad<<", adc =" << mark_adc << std::endl;	
+    }
 
     return;
 }

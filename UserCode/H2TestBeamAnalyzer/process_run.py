@@ -204,7 +204,7 @@ if isXrootdDir:
         if fnmatch.fnmatch(filename, filepattern):
             inputFileList.append("%s/%s"%(inputLoc, filename))
 elif inputIsRemote:
-    ls1 = subprocess.Popen(['ssh','-p 2203', inputLoginInfo, inputCommand], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    ls1 = subprocess.Popen(['ssh', inputLoginInfo, inputCommand], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err =  ls1.communicate()
     inputFileList = out.split()
 else:
@@ -261,7 +261,7 @@ if clobber:
 else:
 
     if outputIsRemote:
-        ls2 = subprocess.Popen(['ssh', '-p 2203',outputLoginInfo, outputCommand], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        ls2 = subprocess.Popen(['ssh', outputLoginInfo, outputCommand], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err =  ls2.communicate()
     else:
         ls2 = subprocess.Popen(outputCommand, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)    
