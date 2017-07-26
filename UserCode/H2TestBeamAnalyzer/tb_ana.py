@@ -221,10 +221,12 @@ for iwc in wcList:
 file = ROOT.TFile(infile)
 #ntp = file.Get("HFData/Events;3")
 ntp = {}
-ntp["hbhe"] = file.Get("HBHEData/Events")
-ntp["hf"] = file.Get("HFData/Events")
+ntp["hbhe"]  = file.Get("HBHEData/Events")
+ntp["hf"]    = file.Get("HFData/Events")
 ntp["qie11"] = file.Get("QIE11Data/Events")
-ntp["wc"] = file.Get("WCData/Events")
+ntp["wc"]    = file.Get("WCData/Events")
+ntp["time"]  = file.Get("Timing/Events")
+
 
 ############################
 # Prepare for tree reading
@@ -233,9 +235,10 @@ ntp["wc"] = file.Get("WCData/Events")
 vname = {}
 vname["hbhe"] = ["numChs", "numTS", "iphi", "ieta", "depth", "pulse", "pulse_adc", "ped", "ped_adc"]
 vname["hf"] = ["numChs", "numTS", "iphi", "ieta", "depth", "pulse", "pulse_adc", "ped", "ped_adc"]
-vname["qie11"] = ["numChs", "numTS", "iphi", "ieta", "depth", "pulse", "ped", "pulse_adc", "ped_adc", "capid_error", "link_error", "soi"]
+vname["qie11"] = ["numChs", "numTS", "iphi", "ieta", "depth", "pulse", "ped", "pulse_adc", "ped_adc", "capid_error", "link_error", "soi", "TDC"]
 #vname["wc"] = ["xA", "yA", "xB", "yB", "xC", "yC", "xD", "yD", "xE", "yE"]
 vname["wc"] = ["xA", "yA", "xB", "yB", "xC", "yC"]
+vname["time"] = ["ttcL1Atime", "triggerTime"]
 
 MAXDIGIS = 300
 MAXTS = 10
@@ -251,7 +254,7 @@ shf = ROOT.hf_struct()
 for ivname in vname["hf"]:
     ntp["hf"].SetBranchAddress(ivname, ROOT.AddressOf(shf, ivname))
 
-ROOT.gROOT.ProcessLine("struct qie11_struct {Int_t numChs; Int_t numTS; Int_t iphi[%(dg)d]; Int_t ieta[%(dg)d]; Int_t depth[%(dg)d]; Float_t pulse[%(dg)d * %(ts)d]; Float_t ped[%(dg)d]; UChar_t pulse_adc[%(dg)d * %(ts)d]; Float_t ped_adc[%(dg)d]; bool capid_error[%(dg)d]; bool link_error[%(dg)d]; bool soi[%(dg)d * %(ts)d];};" % {"dg": MAXDIGIS, "ts": MAXTS})
+ROOT.gROOT.ProcessLine("struct qie11_struct {Int_t numChs; Int_t numTS; Int_t iphi[%(dg)d]; Int_t ieta[%(dg)d]; Int_t depth[%(dg)d]; Float_t pulse[%(dg)d * %(ts)d]; Float_t ped[%(dg)d]; UChar_t pulse_adc[%(dg)d * %(ts)d]; Float_t ped_adc[%(dg)d]; bool capid_error[%(dg)d]; bool link_error[%(dg)d]; bool soi[%(dg)d * %(ts)d]; Int_t TDC[%(dg)d * %(ts)d];};" % {"dg": MAXDIGIS, "ts": MAXTS})
 sqie11 = ROOT.qie11_struct()
 for ivname in vname["qie11"]:
     ntp["qie11"].SetBranchAddress(ivname, ROOT.AddressOf(sqie11, ivname))
@@ -261,6 +264,12 @@ for ivname in vname["wc"]:
     vec[ivname] = ROOT.vector("double")()
     ntp["wc"].SetBranchStatus(ivname, 1)
     ntp["wc"].SetBranchAddress(ivname, vec[ivname])
+
+tvar = {}
+for ivname in vname["time"]:
+    tvar[ivname] = array.array( 'd', [ 0 ] )
+    ntp["time"].SetBranchStatus (ivname, 1)
+    ntp["time"].SetBranchAddress(ivname, tvar[ivname])
 
 
 nevts    = ntp["hbhe"].GetEntries()
@@ -273,7 +282,7 @@ if nevts != nevts_wc:
 
 wc_counts = {}
 for ivname in vname["wc"]:
-    for isize in range(20):
+    for isize in range(30):
         wc_counts[ivname, isize] = 0.
 for iwc in wcList:
     wc_counts[iwc] = 0.
@@ -360,7 +369,18 @@ for ichan in chanlist:
     hist["e_4TS_noPS", ichan] = ROOT.TH1F("Energy_noPS_%s"%label, "Energy_noPS_%s"%label, 247, edges10)
     #print "Nbins: %i, lowedge: "%(hist["e_4TS_noPS", ichan].GetNbinsX())
     #print [hist["e_4TS_noPS", ichan].GetXaxis().GetBinLowEdge(i) for i in xrange(1,247)]
-    hist["e_4TS_PS",   ichan] = ROOT.TH1F("Energy_"     +label, "Energy_"         +label, 247, edges10)
+    hist["e_4TS_PS"     , ichan] = ROOT.TH1F("Energy_"       +label, "Energy_"       +label, 247, edges10)
+    hist["TDC_v_charge" , ichan] = ROOT.TH2F("TDC_v_charge_" +label, "TDC_v_charge_" +label, 8000, 0., 8000., 1001, -0.5, 1000.5)
+    hist["time_v_charge", ichan] = ROOT.TH2F("time_v_charge_"+label, "time_v_charge_"+label, 8000, 0., 8000.,   76, -0.5,   75.5) # 0 = start of TS3, 75 is end of TS5
+    hist["time_v_etime" , ichan] = ROOT.TH2F("time_v_etime_" +label, "time_v_etime_" +label, 251, -75.5,  175.5,   251, -75.5,  175.5)
+    hist["time", ichan]          = ROOT.TH1F("time_"         +label, "time_"         +label, 76  , -0.5,   75.5) # 0 = start of TS3, 75 is end of TS5
+    hist["TDC" , ichan]          = ROOT.TH1F("TDC_"          +label, "TDC_"          +label, 1001, -0.5, 1000.5) # 0 = start of TS3, 75 is end of TS5
+
+
+    hist["trigPhase" , ichan]        = ROOT.TH1F("trigPhase_" +label, "trigPhase_" +label, 500, 1000., 1050.)
+    hist["time_v_trigPhase" , ichan] = ROOT.TH2F("time_v_trigPhase_" +label, "time_v_trigPhase_" +label, 251, -75.5,  175.5,   500, 1000., 1050.)
+
+
 
 for depth in valid_depth:
     hist["e_4TS_etaphi",depth] = ROOT.TProfile2D("Energy_Avg_depth"+str(depth),"Average Energy per event in each ieta,iphi for depth "+str(depth), 
@@ -413,6 +433,8 @@ nevts_to_run = nevts - start
 if nevents != -1 and nevents <= (nevts - start):
     nevts_to_run = nevents
 
+trigPhaseCount = 0
+
 print "Processing ",nevts_to_run," events."    
 for ievt in xrange(start, start + nevts_to_run):
     if (ievt+1) % 1000 == 0: print "Processing Run %5i Event %7i" % (runnum, (ievt+1))
@@ -430,6 +452,7 @@ for ievt in xrange(start, start + nevts_to_run):
         has[ivname] = False
         isize = int(vec[ivname].size())
         wc_counts[ivname, isize] += 1.
+        #  KeyError: ('yC', 20)
         if isize == 1: has[ivname] = True
 
     for iwc in wcList:
@@ -544,6 +567,17 @@ for ievt in xrange(start, start + nevts_to_run):
             		isIn[ichan] = False
             	if isIn[ichan]: wc_counts["nIn", ichan] += 1.
  
+    ########################
+    # Trigger time
+    ########################
+    ntp["time"].GetEvent(ievt)
+    trigPhase = tvar["ttcL1Atime"][0]-tvar["triggerTime"][0]
+    hist["trigPhase" , ichan].Fill(trigPhase)
+    #    if trigPhaseCount < 1000:
+    #        print "trigPhase = ", trigPhase
+    #        trigPhaseCount += 1
+
+
                
     #######################
     # QIE Analysis
@@ -573,6 +607,7 @@ for ievt in xrange(start, start + nevts_to_run):
     # By matching (ieta,iphi,depth), we create a mapping of fchan[ichan] = rchan
     # fchan contains the found channels    
             
+    isPhase1 = {}
     fchan = {}
     fread = {}
     for rchan in xrange(shbhe.numChs):
@@ -581,6 +616,7 @@ for ievt in xrange(start, start + nevts_to_run):
             chansToFind.remove(test_chan)
             fchan[chanmap[test_chan]] = rchan
             fread[test_chan] = shbhe
+            isPhase1[test_chan] = False
 	    #fread[rchan] = shbhe
     for rchan in xrange(sqie11.numChs):
         test_chan = (sqie11.ieta[rchan], sqie11.iphi[rchan], sqie11.depth[rchan])
@@ -589,6 +625,7 @@ for ievt in xrange(start, start + nevts_to_run):
             fchan[chanmap[test_chan]] = rchan
 	    #fread[rchan] = sqie11
             fread[test_chan] = sqie11
+            isPhase1[test_chan] = True
     
     if verbose:
         print "fchan:", fchan
@@ -622,7 +659,8 @@ for ievt in xrange(start, start + nevts_to_run):
 
     charge = {} 
     energy = {}   
-   
+    tdc    = {}
+
     for ichan,rchan in fchan.iteritems():
 
         ieta, iphi, depth = chanmap[ichan]
@@ -640,6 +678,9 @@ for ievt in xrange(start, start + nevts_to_run):
             else:
                 charge[ichan,its] = fread[(ieta,iphi,depth)].pulse[rchan*MAXTS+its]  #[row][col] -> [row*n_cols + col]
                 energy[ichan,its] = charge[ichan,its]*calib[ichan]
+
+            # TDC only available for QIE11 not HBHE
+            if isPhase1[(ieta,iphi,depth)]:  tdc[ichan,its]   = fread[(ieta,iphi,depth)].TDC[rchan*MAXTS+its]  #[row][col] -> [row*n_cols + col]
 
         if verbose:
             print "charge: ", ",".join([str(charge[ichan,its]) for its in xrange(nts)])
@@ -663,10 +704,10 @@ for ievt in xrange(start, start + nevts_to_run):
         sig_esum_ps = 0.
         for its in ts_list:  
             if adc:
-                sig_esum += charge_adc[ichan,its]
+                sig_esum    += charge_adc[ichan,its]
                 sig_esum_ps += charge_adc[ichan,its] - esum[ichan, "PED_ADC"]  #pedestal-subtracted energy  
             else:
-                sig_esum += energy[ichan,its]
+                sig_esum    += energy[ichan,its]
                 sig_esum_ps += energy[ichan,its] - esum[ichan, "PED"]  #pedestal-subtracted energy  
         esum[ichan, "4TS_noPS"] = sig_esum
         esum[ichan, "4TS_PS"] = sig_esum_ps          
@@ -690,15 +731,39 @@ for ievt in xrange(start, start + nevts_to_run):
             for its in range(10):
                 hist["avgpulse", ichan].Fill(its,energy[ichan,its])
 
-        if fillEplots: 
-            for its in range(10):
-                hist["charge", ichan, its].Fill(charge[ichan,its])
-
         # Fill 4TS energy sum plot
         if fillEplots: hist["e_4TS_noPS", ichan].Fill(esum[ichan, "4TS_noPS"])
 
         # Fill 4TS pedestal-corrected energy sum plot
         if fillEplots: hist["e_4TS_PS", ichan].Fill(esum[ichan, "4TS_PS"])
+        
+        # Fill time vs. charge plots
+        if fillEplots and isPhase1[(ieta,iphi,depth)]:
+            time  = 0.
+            tsoi  = -9
+            esum10 = 0.
+            for its in range(10):
+                hist["TDC_v_charge" , ichan].Fill(charge[ichan,its], tdc[ichan,its]+its*100.)
+                hist["TDC" , ichan].Fill(tdc[ichan,its]+its*100.)
+                # Find sample of interest as sample before first with TDC=62 (started above threshold)
+                if tdc[ichan,its] == 62 and tsoi<0: tsoi = its-1
+                esum10 += charge[ichan,its]
+
+            # convert to units of ns since start of TS3
+            if tsoi>0: time = tdc[ichan,tsoi]*0.5 + 25.*(tsoi-3.)
+
+            # Find energy weighted time for comparison
+            etime_ts = 0.
+            for its in range(10):
+                etime_ts += its * charge[ichan,its]/esum10  # E-weighted time in units of TS
+            # convert to units of ns since start of TS3
+            etime = 25.*(etime_ts-3.)
+            
+            if tsoi > 0:
+                hist["time_v_charge", ichan].Fill(charge[ichan,its], time)
+                hist["time", ichan]  .Fill(time)
+                hist["time_v_etime" , ichan].Fill(etime, time)
+                hist["time_v_trigPhase" , ichan].Fill(time, trigPhase)
                 
         # Fill energy profile in ieta, iphi
         if fillEplots:            
@@ -729,6 +794,56 @@ for ievt in xrange(start, start + nevts_to_run):
                 hist["e_wcC_x_noTScut", ichan].Fill(x)
                 hist["e_wcC_y_noTScut", ichan].Fill(y)
 
+###Sort the histograms
+SortedHist = outtfile.mkdir("SortedHist")
+wire_chamber_hist = SortedHist.mkdir("Wire_chamber_hist")
+Charge_hist = SortedHist.mkdir("Charge_hist")
+Link_Error_hist = SortedHist.mkdir("Link_Error_hist")
+AvgPulse_hist = SortedHist.mkdir("AvgPulse_hist")
+Energy_hist = SortedHist.mkdir("Energy_hist")
+other_hist = SortedHist.mkdir("Other_hist")
+#h_x_hist = SortedHist.mkdir("h_x_hist")
+#h_y_hist = SortedHist.mkdir("h_y_hist")
+#h_dx_hist = SortedHist.mkdir("h_dx_hist")
+#h_dy_hist = SortedHist.mkdir("h_dy_hist")
+SortedHist.cd()
+
+#print hist.keys()
+
+for key,val in hist.items():
+    if key[0].find("wcC") >= 0:
+        wire_chamber_hist.cd()
+        val.Write()
+    elif key[0].find("charge") >= 0:
+        Charge_hist.cd()
+        #print "Found Charge hist"
+        val.Write()
+    elif key[0].find("link") >= 0:
+        Link_Error_hist.cd()
+        val.Write()
+    elif key[0].find("avgpulse") >= 0:
+        AvgPulse_hist.cd()
+        val.Write()
+    elif key[0].find("e") >= 0:
+        Energy_hist.cd()
+        val.Write()
+    else:
+        other_hist.cd()
+        val.Write()
+    #elif key[0].find("h_x") >= 0:
+    #    h_x_hist.cd()
+    #    val.Write()
+    #elif key[0].find("h_y") >= 0:
+    #    h_y_hist.cd()
+    #    val.Write()
+    #elif key[0].find("h_dx") >= 0:
+    #    h_dx_hist.cd()
+    #    val.Write()
+    #elif key[0].find("h_dy") >= 0:
+    #    h_dy_hist.cd()
+    #    val.Write()
+
+outtfile.cd()
 
 #
 #print "Fraction of events with N hits in each WC view"

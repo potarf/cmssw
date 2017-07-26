@@ -361,6 +361,7 @@ void H2TestBeamAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup
 {
     int mark_bad = 0;
     int mark_adc = 0;
+    int mark_tdc = 0;
 
     //
     //  Extracting All the Collections containing useful Info
@@ -557,15 +558,15 @@ void H2TestBeamAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup
 
             _hbheInfo.pulse[numChs][iTS] = fC;
             _hbheInfo.pulse_adc[numChs][iTS] = adc;
-            if (iTS >= 1 && iTS <= 3)
+            if (iTS >= 1 && iTS <= 2)
             {
                 ped_fc += fC;
                 ped_adc += adc;
             }
         }
         
-        _hbheInfo.ped[numChs] = ped_fc/3.;
-        _hbheInfo.ped_adc[numChs] = ped_adc/3.;
+        _hbheInfo.ped[numChs] = ped_fc/2.;
+        _hbheInfo.ped_adc[numChs] = ped_adc/2.;
         
         _hbheInfo.valid[numChs] = digi->validate();
         
@@ -753,9 +754,11 @@ void H2TestBeamAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup
                 (adc == 124 && tdc == 31) || (adc == 124 && tdc == 49)) {
                mark_bad = 1;
                mark_adc = adc;
+               mark_tdc = tdc;
+               std::cout << "Mark TS "<<EventNumber<<":"<<i<<" bad, code="<<mark_bad<<", adc=" << mark_adc << ", tdc=" << mark_tdc << std::endl;
             }
 
-            // compute ped from first 3 time samples
+            // compute ped from TS 1&2
             if (i>=1 && i<=2){
                 ped_adc += adc;
                 ped_fc += charge;
@@ -764,18 +767,6 @@ void H2TestBeamAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup
         }
         ped_adc = ped_adc/2.;
         ped_fc = ped_fc/2.; 
-
-        for(int i=0; i<nTS-3; ++i)
-        {
-            if (_qie11Info.pulse_adc[j][i+1] == _qie11Info.pulse_adc[j][i] &&
-		_qie11Info.pulse_adc[j][i+2] == _qie11Info.pulse_adc[j][i] &&
-                _qie11Info.pulse_adc[j][i+3] == _qie11Info.pulse_adc[j][i] &&
-		_qie11Info.pulse_adc[j][i] > 100 && mark_bad == 0) {
-			mark_bad = 2;
-			mark_adc = _qie11Info.pulse_adc[j][i];
-                } 
-        }
-
 
         if (_verbosity>0)
             std::cout << "The pedestal for this channel is " << ped_adc << "ADC counts and " << ped_fc << " fC" << std::endl;
@@ -804,7 +795,7 @@ void H2TestBeamAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup
       _treeBC->Fill();
       _treeTiming->Fill();
     } else {
-      std::cout << "Mark event "<<EventNumber<<" bad, code = "<<mark_bad<<", adc =" << mark_adc << std::endl;	
+      std::cout << "Mark event "<<EventNumber<<" bad, code="<<mark_bad<<", adc=" << mark_adc << std::endl;	
     }
 
     return;

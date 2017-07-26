@@ -3,8 +3,8 @@
 #include <math.h>
 
 // Timing channels
-static const int lcTriggerTime     = 1;
-static const int lcTTCL1ATime      = 2;
+static const int lcTriggerTime     = 104;
+static const int lcTTCL1ATime      = 101;
 static const int lcBeamCoincidence = 3;
 static const int lcLaserFlash      = 4;
 static const int lcQIEPhase        = 5;
@@ -12,8 +12,8 @@ static const int lcQIEPhase        = 5;
 static const int lcMuon1           = 90;
 static const int lcMuon2           = 91;
 static const int lcMuon3           = 92;
-static const int lcScint1          = 93;
-static const int lcScint2          = 94;
+static const int lcScint1          = 107;
+static const int lcScint2          = 110;
 static const int lcScint3          = 95;
 static const int lcScint4          = 96;
 static const int lcBeamHalo1       = 50;
