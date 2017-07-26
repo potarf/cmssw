@@ -71,7 +71,7 @@ parser.add_option ('--start', dest='start', type='int',
                    default = 0,
                    help="Event number to start at (default: %default)")
 parser.add_option ('--sigTS', dest='sigTS', type='int',
-                   default = 4,
+                   default = 7,
                    help="Number of time samples to use as signal (default: %default)")
 parser.add_option ('--adc', dest='adc',
                    action='store_true', default = False,
@@ -658,7 +658,7 @@ for ievt in xrange(start, start + nevts_to_run):
             print "Pedestal (ADC counts) = %s" % (fread[(ieta,iphi,depth)].ped_adc[rchan])
 
         # Compute signal and pedestal-subtracted signal
-        ts_list = xrange(4,4+sigTS) # [4,5,6,7]   #time samples in which to sum charge for signal (4-7 by default)
+        ts_list = xrange(3,4+sigTS) # [3,4,5,6,7,8,9]   #time samples in which to sum charge for signal
         sig_esum = 0.
         sig_esum_ps = 0.
         for its in ts_list:  
