@@ -658,7 +658,7 @@ for ievt in xrange(start, start + nevts_to_run):
             print "Pedestal (ADC counts) = %s" % (fread[(ieta,iphi,depth)].ped_adc[rchan])
 
         # Compute signal and pedestal-subtracted signal
-        ts_list = xrange(3,4+sigTS) # [3,4,5,6,7,8,9]   #time samples in which to sum charge for signal
+        ts_list = xrange(3,3+sigTS) # [3,4,5,6,7,8,9]   #time samples in which to sum charge for signal
         sig_esum = 0.
         sig_esum_ps = 0.
         for its in ts_list:  
