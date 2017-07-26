@@ -644,7 +644,7 @@ void H2TestBeamAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup
             
             _hfInfo.pulse[numChs][iTS] = fC;
             _hfInfo.pulse_adc[numChs][iTS] = adc;
-            if (i>=1 && i<=2)
+            if (iTS>=1 && iTS<=2)
             {
                 ped_fc += fC;
                 ped_adc += adc;
