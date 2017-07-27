@@ -282,7 +282,7 @@ if nevts != nevts_wc:
 
 wc_counts = {}
 for ivname in vname["wc"]:
-    for isize in range(30):
+    for isize in range(100):
         wc_counts[ivname, isize] = 0.
 for iwc in wcList:
     wc_counts[iwc] = 0.
