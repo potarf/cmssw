@@ -92,10 +92,11 @@ process.output = cms.OutputModule(
         'PoolOutputModule',
         fileName = cms.untracked.string('cmsrun_out_h2_tb_run'+runNumber+emapFileShort+'.root')
 )
+
 #
-process.TFileService = cms.Service("TFileService",
-       fileName = cms.string("analysis_run"+runNumber+"_"+emapFileShort+".root"),
-)
+#process.TFileService = cms.Service("TFileService",
+#       fileName = cms.string("analysis_run"+runNumber+"_"+emapFileShort+".root"),
+#)
 
 process.load('Configuration.Geometry.GeometryIdeal_cff')
 #process.load('RecoLocalCalo.Configuration.hcalLocalReco_cff')
@@ -128,6 +129,6 @@ else:
     if verbosityLevel > 0:
         process.p = cms.Path(process.tbunpack*process.hcalDigis*process.dump*process.hcalAnalyzer*process.hcalADCHists)
     else:
-        process.p = cms.Path(process.tbunpack*process.hcalDigis*process.hcalAnalyzer*process.hcalADCHists)
+        process.p = cms.Path(process.tbunpack*process.hcalDigis*process.hcalAnalyzer) #does not include process.hcalADCHists (for speed)
 
 # process.outpath = cms.EndPath(process.output)

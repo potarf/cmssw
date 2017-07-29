@@ -71,7 +71,7 @@ parser.add_option ('--start', dest='start', type='int',
                    default = 0,
                    help="Event number to start at (default: %default)")
 parser.add_option ('--sigTS', dest='sigTS', type='int',
-                   default = 7,
+                   default = 4,
                    help="Number of time samples to use as signal (default: %default)")
 parser.add_option ('--adc', dest='adc',
                    action='store_true', default = False,
@@ -265,12 +265,12 @@ for ivname in vname["wc"]:
     ntp["wc"].SetBranchStatus(ivname, 1)
     ntp["wc"].SetBranchAddress(ivname, vec[ivname])
 
+
 tvar = {}
 for ivname in vname["time"]:
     tvar[ivname] = array.array( 'd', [ 0 ] )
     ntp["time"].SetBranchStatus (ivname, 1)
     ntp["time"].SetBranchAddress(ivname, tvar[ivname])
-
 
 nevts    = ntp["hbhe"].GetEntries()
 nevts_wc = ntp["wc"].GetEntries()
@@ -354,6 +354,17 @@ hist["dy_AC", "clean"] = ROOT.TH1F("h_dy_AC_clean", "h_dy_AC_clean", 400, -100.,
 #hist["dx_AE", "clean"] = ROOT.TH1F("h_dx_AE_clean", "h_dx_AE_clean", 400, -100., 100.)
 #hist["dy_AE", "clean"] = ROOT.TH1F("h_dy_AE_clean", "h_dy_AE_clean", 400, -100., 100.)
 
+# Trigger phase 
+ntp["time"].GetEvent(1)
+trigPhase = tvar["ttcL1Atime"][0]-tvar["triggerTime"][0]
+hist["trigPhase"] = ROOT.TH1F("trigPhase", "trigPhase", 500, trigPhase-50., trigPhase+50.)
+
+# Particle ID stuff (PID)
+hist["pid"]        = ROOT.TH1F("pid", "pid",       3,  0.5, 3.5) # 1 = muon, 2 = pion, 3 = electron
+hist["nPass"]      = ROOT.TH1F("nPass", "nPass",   7, -0.5, 6.5)
+hist["frac19_5_2"] = ROOT.TH1F("frac19_5_2", "frac19_5_2", 100, 0.0, 1.0) 
+
+
 
 # QIE11 histograms
 for ichan in chanlist:
@@ -377,35 +388,24 @@ for ichan in chanlist:
     hist["TDC" , ichan]          = ROOT.TH1F("TDC_"          +label, "TDC_"          +label, 1001, -0.5, 1000.5) # 0 = start of TS3, 75 is end of TS5
 
 
-    hist["trigPhase" , ichan]        = ROOT.TH1F("trigPhase_" +label, "trigPhase_" +label, 500, 1000., 1050.)
-    hist["time_v_trigPhase" , ichan] = ROOT.TH2F("time_v_trigPhase_" +label, "time_v_trigPhase_" +label, 251, -75.5,  175.5,   500, 1000., 1050.)
+
+
+    hist["time_v_trigPhase" , ichan] = ROOT.TH2F("time_v_trigPhase_" +label, "time_v_trigPhase_" +label, 251, -75.5,  175.5,   500, trigPhase-50., trigPhase+50.)
 
 
 
 for depth in valid_depth:
-
-    valid_ieta_max = valid_ieta[-1]
-    valid_ieta_min = valid_ieta[0]
-    valid_iphi_max = valid_iphi[-1]
-    valid_iphi_min = valid_iphi[0]
-
-    if valid_ieta_max - valid_ieta_min < 8:  valid_ieta_max = valid_ieta_min + 8 
-    if valid_iphi_max - valid_iphi_min < 8:  valid_iphi_max = valid_iphi_min + 8
-
-    valid_depth_max = valid_depth[-1]
-    valid_depth_min = valid_depth[0]
-
     hist["e_4TS_etaphi",depth] = ROOT.TProfile2D("Energy_Avg_depth"+str(depth),"Average Energy per event in each ieta,iphi for depth "+str(depth), 
-                                                 (valid_ieta_max - valid_ieta_min)+3, valid_ieta_min-1.5, valid_ieta_max+1.5, 
-                                                 (valid_iphi_max - valid_iphi_min)+3, valid_iphi_min-1.5, valid_iphi_max+1.5)
+                                                 (valid_ieta[-1] - valid_ieta[0])+3, valid_ieta[0]-1.5, valid_ieta[-1]+1.5, 
+                                                 (valid_iphi[-1] - valid_iphi[0])+3, valid_iphi[0]-1.5, valid_iphi[-1]+1.5)
     hist["occupancy_event_etaphi",depth] = ROOT.TH2F("Occ_Event_depth_"+str(depth),"Fraction of Events with a hit in each ieta,iphi for depth "+str(depth), 
-                                                     (valid_ieta_max - valid_ieta_min)+3, valid_ieta_min-1.5, valid_ieta_max+1.5,
-                                                     (valid_iphi_max - valid_iphi_min)+3, valid_iphi_min-1.5, valid_iphi_max+1.5)
+                                                     (valid_ieta[-1] - valid_ieta[0])+3, valid_ieta[0]-1.5, valid_ieta[-1]+1.5,
+                                                     (valid_iphi[-1] - valid_iphi[0])+3, valid_iphi[0]-1.5, valid_iphi[-1]+1.5)
 
 for iphi in valid_iphi:
     hist["e_4TS_etadepth",iphi] = ROOT.TProfile2D("Energy_Avg_phi"+str(iphi),"Average Energy per event in each ieta,depth for iphi "+str(iphi), 
-                                                  (valid_ieta_max - valid_ieta_min)+3, valid_ieta_min-1.5, valid_ieta_max+1.5, 
-                                                  (valid_depth_max - valid_depth_min)+3, valid_depth_min-1.5, valid_depth_max+1.5)
+                                                  (valid_ieta[-1] - valid_ieta[0])+3, valid_ieta[0]-1.5, valid_ieta[-1]+1.5, 
+                                                  (valid_depth[-1] - valid_depth[0])+3, valid_depth[0]-1.5, valid_depth[-1]+1.5)
 
     
 #Plot average 4TS energy sum (z-axis) in plane of track coords from WC C
@@ -445,11 +445,16 @@ nevts_to_run = nevts - start
 if nevents != -1 and nevents <= (nevts - start):
     nevts_to_run = nevents
 
-trigPhaseCount = 0
-
 print "Processing ",nevts_to_run," events."    
 for ievt in xrange(start, start + nevts_to_run):
     if (ievt+1) % 1000 == 0: print "Processing Run %5i Event %7i" % (runnum, (ievt+1))
+
+    #########################
+    # Trigger time
+    #########################
+    ntp["time"].GetEvent(ievt)
+    trigPhase = tvar["ttcL1Atime"][0]-tvar["triggerTime"][0]
+    hist["trigPhase"].Fill(trigPhase)
 
     #######################
     # WC Analysis
@@ -579,18 +584,6 @@ for ievt in xrange(start, start + nevts_to_run):
             		isIn[ichan] = False
             	if isIn[ichan]: wc_counts["nIn", ichan] += 1.
  
-    ########################
-    # Trigger time
-    ########################
-    ntp["time"].GetEvent(ievt)
-    trigPhase = tvar["ttcL1Atime"][0]-tvar["triggerTime"][0]
-    hist["trigPhase" , ichan].Fill(trigPhase)
-    #    if trigPhaseCount < 1000:
-    #        print "trigPhase = ", trigPhase
-    #        trigPhaseCount += 1
-
-
-               
     #######################
     # QIE Analysis
     #######################
@@ -673,8 +666,20 @@ for ievt in xrange(start, start + nevts_to_run):
     energy = {}   
     tdc    = {}
 
-    for ichan,rchan in fchan.iteritems():
+    # PID variables
+    ################
+    e19_5 = {} # dictionary for holding energies of depths in tower ieta19, iphi5
+    for idep in range(2,7):
+        e19_5[idep] = 0.
 
+    showerE = 0.  # shower energy
+    showerChans = []  # channels in which to sum shower energy
+    for ieta in range(17,20):
+        for idep in range(2,7):
+            showerChans.append((ieta, 5, idep))
+            
+        
+    for ichan,rchan in fchan.iteritems():
         ieta, iphi, depth = chanmap[ichan]
 
         if verbose:
@@ -711,7 +716,7 @@ for ievt in xrange(start, start + nevts_to_run):
             print "Pedestal (ADC counts) = %s" % (fread[(ieta,iphi,depth)].ped_adc[rchan])
 
         # Compute signal and pedestal-subtracted signal
-        ts_list = xrange(3,3+sigTS) # [3,4,5,6,7,8,9]   #time samples in which to sum charge for signal
+        ts_list = xrange(4,4+sigTS) # [4,5,6,7]   #time samples in which to sum charge for signal (4-7 by default)
         sig_esum = 0.
         sig_esum_ps = 0.
         for its in ts_list:  
@@ -723,6 +728,13 @@ for ievt in xrange(start, start + nevts_to_run):
                 sig_esum_ps += energy[ichan,its] - esum[ichan, "PED"]  #pedestal-subtracted energy  
         esum[ichan, "4TS_noPS"] = sig_esum
         esum[ichan, "4TS_PS"] = sig_esum_ps          
+        
+        # fill pid vars
+        if (ieta,iphi,depth) in showerChans:
+            showerE += esum[ichan, "4TS_PS"]
+            
+        if ieta == 19 and iphi == 5 and depth in range(2,7):
+            e19_5[depth] = esum[ichan, "4TS_PS"]
 
         # Fill histograms
         ####################
@@ -805,57 +817,38 @@ for ievt in xrange(start, start + nevts_to_run):
                 hist["e_wcC_noTScut"  , ichan].Fill(x,y)
                 hist["e_wcC_x_noTScut", ichan].Fill(x)
                 hist["e_wcC_y_noTScut", ichan].Fill(y)
+    
+    # Do PID
+    ##############
+    isMuon = False; 
+    isElectron = False; 
 
-###Sort the histograms
-SortedHist = outtfile.mkdir("SortedHist")
-wire_chamber_hist = SortedHist.mkdir("Wire_chamber_hist")
-Charge_hist = SortedHist.mkdir("Charge_hist")
-Link_Error_hist = SortedHist.mkdir("Link_Error_hist")
-AvgPulse_hist = SortedHist.mkdir("AvgPulse_hist")
-Energy_hist = SortedHist.mkdir("Energy_hist")
-other_hist = SortedHist.mkdir("Other_hist")
-#h_x_hist = SortedHist.mkdir("h_x_hist")
-#h_y_hist = SortedHist.mkdir("h_y_hist")
-#h_dx_hist = SortedHist.mkdir("h_dx_hist")
-#h_dy_hist = SortedHist.mkdir("h_dy_hist")
-SortedHist.cd()
+    # muon
+    nPass = 0
+    for idep in range(2,7):
+        if shunt == 6:
+            if e19_5[idep] > 20. and e19_5[idep] < 600.: nPass += 1
+        elif shunt == 1:
+            if e19_5[idep] > 120. and e19_5[idep] < 3600.: nPass += 1
 
-#print hist.keys()
+    if nPass >= 4: isMuon = True
 
-for key,val in hist.items():
-    if key[0].find("wcC") >= 0:
-        wire_chamber_hist.cd()
-        val.Write()
-    elif key[0].find("charge") >= 0:
-        Charge_hist.cd()
-        #print "Found Charge hist"
-        val.Write()
-    elif key[0].find("link") >= 0:
-        Link_Error_hist.cd()
-        val.Write()
-    elif key[0].find("avgpulse") >= 0:
-        AvgPulse_hist.cd()
-        val.Write()
-    elif key[0].find("e") >= 0:
-        Energy_hist.cd()
-        val.Write()
-    else:
-        other_hist.cd()
-        val.Write()
-    #elif key[0].find("h_x") >= 0:
-    #    h_x_hist.cd()
-    #    val.Write()
-    #elif key[0].find("h_y") >= 0:
-    #    h_y_hist.cd()
-    #    val.Write()
-    #elif key[0].find("h_dx") >= 0:
-    #    h_dx_hist.cd()
-    #    val.Write()
-    #elif key[0].find("h_dy") >= 0:
-    #    h_dy_hist.cd()
-    #    val.Write()
+    #electron
+    if not isMuon and e19_5[2]/showerE > 0.9: isElectron = True
 
-outtfile.cd()
+    if isMuon       : hist["pid"].Fill(1)
+    elif isElectron : hist["pid"].Fill(2)
+    else            : hist["pid"].Fill(3)
+
+    hist["nPass"].Fill(nPass)
+    hist["frac19_5_2"].Fill(e19_5[2]/showerE)
+
+
+
+        
+
+
+    
 
 #
 #print "Fraction of events with N hits in each WC view"
