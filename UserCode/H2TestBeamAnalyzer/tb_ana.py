@@ -271,7 +271,6 @@ for ivname in vname["time"]:
     ntp["time"].SetBranchStatus (ivname, 1)
     ntp["time"].SetBranchAddress(ivname, tvar[ivname])
 
-
 nevts    = ntp["hbhe"].GetEntries()
 nevts_wc = ntp["wc"].GetEntries()
 if nevts != nevts_wc:
@@ -354,6 +353,17 @@ hist["dy_AC", "clean"] = ROOT.TH1F("h_dy_AC_clean", "h_dy_AC_clean", 400, -100.,
 #hist["dx_AE", "clean"] = ROOT.TH1F("h_dx_AE_clean", "h_dx_AE_clean", 400, -100., 100.)
 #hist["dy_AE", "clean"] = ROOT.TH1F("h_dy_AE_clean", "h_dy_AE_clean", 400, -100., 100.)
 
+# Trigger phase 
+ntp["time"].GetEvent(1)
+trigPhase = tvar["ttcL1Atime"][0]-tvar["triggerTime"][0]
+hist["trigPhase"] = ROOT.TH1F("trigPhase", "trigPhase", 500, trigPhase-50., trigPhase+50.)
+
+# Particle ID stuff (PID)
+hist["pid"]        = ROOT.TH1F("pid", "pid",       3,  0.5, 3.5) # 1 = muon, 2 = pion, 3 = electron
+hist["nPass"]      = ROOT.TH1F("nPass", "nPass",   7, -0.5, 6.5)
+hist["frac19_5_2"] = ROOT.TH1F("frac19_5_2", "frac19_5_2", 100, 0.0, 1.0) 
+
+
 
 # QIE11 histograms
 for ichan in chanlist:
@@ -377,10 +387,9 @@ for ichan in chanlist:
     hist["TDC" , ichan]          = ROOT.TH1F("TDC_"          +label, "TDC_"          +label, 1001, -0.5, 1000.5) # 0 = start of TS3, 75 is end of TS5
 
 
-    hist["trigPhase" , ichan]        = ROOT.TH1F("trigPhase_" +label, "trigPhase_" +label, 500, 1000., 1050.)
-    hist["time_v_trigPhase" , ichan] = ROOT.TH2F("time_v_trigPhase_" +label, "time_v_trigPhase_" +label, 251, -75.5,  175.5,   500, 1000., 1050.)
 
 
+    hist["time_v_trigPhase" , ichan] = ROOT.TH2F("time_v_trigPhase_" +label, "time_v_trigPhase_" +label, 251, -75.5,  175.5,   500, trigPhase-50., trigPhase+50.)
 
 for depth in valid_depth:
 
@@ -445,11 +454,16 @@ nevts_to_run = nevts - start
 if nevents != -1 and nevents <= (nevts - start):
     nevts_to_run = nevents
 
-trigPhaseCount = 0
-
 print "Processing ",nevts_to_run," events."    
 for ievt in xrange(start, start + nevts_to_run):
     if (ievt+1) % 1000 == 0: print "Processing Run %5i Event %7i" % (runnum, (ievt+1))
+
+    #########################
+    # Trigger time
+    #########################
+    ntp["time"].GetEvent(ievt)
+    trigPhase = tvar["ttcL1Atime"][0]-tvar["triggerTime"][0]
+    hist["trigPhase"].Fill(trigPhase)
 
     #######################
     # WC Analysis
@@ -579,18 +593,6 @@ for ievt in xrange(start, start + nevts_to_run):
             		isIn[ichan] = False
             	if isIn[ichan]: wc_counts["nIn", ichan] += 1.
  
-    ########################
-    # Trigger time
-    ########################
-    ntp["time"].GetEvent(ievt)
-    trigPhase = tvar["ttcL1Atime"][0]-tvar["triggerTime"][0]
-    hist["trigPhase" , ichan].Fill(trigPhase)
-    #    if trigPhaseCount < 1000:
-    #        print "trigPhase = ", trigPhase
-    #        trigPhaseCount += 1
-
-
-               
     #######################
     # QIE Analysis
     #######################
@@ -673,8 +675,20 @@ for ievt in xrange(start, start + nevts_to_run):
     energy = {}   
     tdc    = {}
 
-    for ichan,rchan in fchan.iteritems():
+    # PID variables
+    ################
+    e19_5 = {} # dictionary for holding energies of depths in tower ieta19, iphi5
+    for idep in range(2,7):
+        e19_5[idep] = 0.
 
+    showerE = 0.  # shower energy
+    showerChans = []  # channels in which to sum shower energy
+    for ieta in range(17,20):
+        for idep in range(2,7):
+            showerChans.append((ieta, 5, idep))
+            
+        
+    for ichan,rchan in fchan.iteritems():
         ieta, iphi, depth = chanmap[ichan]
 
         if verbose:
@@ -723,6 +737,13 @@ for ievt in xrange(start, start + nevts_to_run):
                 sig_esum_ps += energy[ichan,its] - esum[ichan, "PED"]  #pedestal-subtracted energy  
         esum[ichan, "4TS_noPS"] = sig_esum
         esum[ichan, "4TS_PS"] = sig_esum_ps          
+        
+        # fill pid vars
+        if (ieta,iphi,depth) in showerChans:
+            showerE += esum[ichan, "4TS_PS"]
+            
+        if ieta == 19 and iphi == 5 and depth in range(2,7):
+            e19_5[depth] = esum[ichan, "4TS_PS"]
 
         # Fill histograms
         ####################
@@ -805,6 +826,31 @@ for ievt in xrange(start, start + nevts_to_run):
                 hist["e_wcC_noTScut"  , ichan].Fill(x,y)
                 hist["e_wcC_x_noTScut", ichan].Fill(x)
                 hist["e_wcC_y_noTScut", ichan].Fill(y)
+    
+    # Do PID
+    ##############
+    isMuon = False; 
+    isElectron = False; 
+
+    # muon
+    nPass = 0
+    for idep in range(2,7):
+        if shunt == 6:
+            if e19_5[idep] > 20. and e19_5[idep] < 600.: nPass += 1
+        elif shunt == 1:
+            if e19_5[idep] > 120. and e19_5[idep] < 3600.: nPass += 1
+
+    if nPass >= 4: isMuon = True
+
+    #electron
+    if not isMuon and e19_5[2]/showerE > 0.9: isElectron = True
+
+    if isMuon       : hist["pid"].Fill(1)
+    elif isElectron : hist["pid"].Fill(2)
+    else            : hist["pid"].Fill(3)
+
+    hist["nPass"].Fill(nPass)
+    hist["frac19_5_2"].Fill(e19_5[2]/showerE)
 
 ###Sort the histograms
 SortedHist = outtfile.mkdir("SortedHist")
@@ -856,6 +902,9 @@ for key,val in hist.items():
     #    val.Write()
 
 outtfile.cd()
+
+
+        
 
 #
 #print "Fraction of events with N hits in each WC view"
