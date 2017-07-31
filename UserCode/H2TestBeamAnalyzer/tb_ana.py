@@ -76,7 +76,7 @@ parser.add_option ('--sigTS', dest='sigTS', type='int',
 parser.add_option ('--adc', dest='adc',
                    action='store_true', default = False,
                    help="Turn off lineariziation of ADC counts")
-parser.add_option ('--verbose', dest='verbose', 
+parser.add_option ('--verbose', dest='verbose',
                    action='store_true', default=False,
                    help="Turn on verbose mode")
 parser.add_option ('-e', dest='emap',
@@ -85,12 +85,14 @@ parser.add_option ('-e', dest='emap',
 parser.add_option ('--shunt', dest='shunt', type='float',
                    default=1.,
                    help="QIE shunt setting (default: %default)")
-
+parser.add_option ('--EVD', dest='evd', action='store_true',
+                   help="Produce text file for event display input")
 
 options, args = parser.parse_args()
 
 infile = options.infile
 outfile = options.outfile
+
 runnum = options.runnum
 doRefTile = options.doRefTile
 verbose = options.verbose
@@ -100,9 +102,11 @@ start = options.start
 adc = options.adc
 emapFile = options.emap
 shunt = options.shunt
+evd = options.evd
+
 
 # Do some sanity checks
-if infile is None: 
+if infile is None:
     print "You did not provide an input file! Exiting."
     sys.exit()
 if outfile is None:
@@ -112,6 +116,9 @@ if runnum is None:
     print "You did not provide a run number! Exiting."
     sys.exit()
 
+# open event display output file
+if evd:
+    evdFile = open("EVD%i.txt" % runnum, 'w')
 
 # The following is needed to get the chanmap and associated
 # variables from a tb_chanmap_* file, where the filename
@@ -135,7 +142,7 @@ edges10_np = edges10_np/shunt
 edges10 = array.array('d', edges10_np)
 
 #######################
-#  Set ROOT options  
+#  Set ROOT options
 #######################
 
 print "Setting ROOT options"
@@ -180,7 +187,7 @@ ROOT.gStyle.SetNumberContours(NCont)
 # Number of standard deviations for WC residuals cut
 sigma_thold = 1.
 # Channel to use as reference tile counter, currently 2x10 SCSN-81
-refchan = 22  
+refchan = 22
 #refchan = 23
 # Energy to require to TS4 sum in reference tile counter (depends on channel):
 refE = {}
@@ -230,7 +237,7 @@ ntp["time"]  = file.Get("Timing/Events")
 
 ############################
 # Prepare for tree reading
-############################           
+############################
 
 vname = {}
 vname["hbhe"] = ["numChs", "numTS", "iphi", "ieta", "depth", "pulse", "pulse_adc", "ped", "ped_adc"]
@@ -271,6 +278,7 @@ for ivname in vname["time"]:
     ntp["time"].SetBranchStatus (ivname, 1)
     ntp["time"].SetBranchAddress(ivname, tvar[ivname])
 
+
 nevts    = ntp["hbhe"].GetEntries()
 nevts_wc = ntp["wc"].GetEntries()
 if nevts != nevts_wc:
@@ -300,7 +308,7 @@ wc_counts["passYACp"] = 0.
 wc_counts["passYACm"] = 0.
 wc_counts["badEnergy"] = 1.
 
-    
+
 for ichan in chanlist:
     wc_counts["nIn", ichan] = 0.
 
@@ -315,9 +323,9 @@ hist = {}
 # Define wire chamber histograms
 for ip0 in wcList:
    # 2D histos for x vs y in each chamber
-    hist["x"+ip0+"_v_y"+ip0]          = ROOT.TH2F("h_x"+ip0+"_v_y"+ip0, "h_x"+ip0+"_v_y"+ip0, 
+    hist["x"+ip0+"_v_y"+ip0]          = ROOT.TH2F("h_x"+ip0+"_v_y"+ip0, "h_x"+ip0+"_v_y"+ip0,
                                                   400, -100., 100., 400, -100., 100.)
-    hist["x"+ip0+"_v_y"+ip0, "clean"] = ROOT.TH2F("h_x"+ip0+"_v_y"+ip0+"_clean", "h_x"+ip0+"_v_y"+ip0+"_clean", 
+    hist["x"+ip0+"_v_y"+ip0, "clean"] = ROOT.TH2F("h_x"+ip0+"_v_y"+ip0+"_clean", "h_x"+ip0+"_v_y"+ip0+"_clean",
                                                   400, -100., 100., 400, -100., 100.)
 
     for ixy in ["x", "y"]:
@@ -325,18 +333,18 @@ for ip0 in wcList:
         hist[ixy+ip0] = ROOT.TH1F("h_"+ixy+"_"+ip0, "h_"+ixy+"_"+ip0, 400, -100., 100.)
         hist[ixy+ip0, "clean"] = ROOT.TH1F("h_"+ixy+"_"+ip0+"_clean", "h_"+ixy+"_"+ip0+"_clean", 400, -100., 100.)
         # 2D histos for x and y correlations for all histo combinations
-        
+
     for ip1 in wcList:
-        if ((ip0 == "A" and ip1 == "B") or (ip0 == "A" and ip1 == "C") or (ip0 == "A" and ip1 == "D") or (ip0 == "A" and ip1 == "E") or 
+        if ((ip0 == "A" and ip1 == "B") or (ip0 == "A" and ip1 == "C") or (ip0 == "A" and ip1 == "D") or (ip0 == "A" and ip1 == "E") or
             (ip0 == "B" and ip1 == "C") or (ip0 == "B" and ip1 == "D") or (ip0 == "B" and ip1 == "E") or
             (ip0 == "C" and ip1 == "D") or (ip0 == "C" and ip1 == "E") or
             (ip0 == "D" and ip1 == "E")):
             for ixy in ["x", "y"]:
                 hist[ixy+ip0+"_v_"+ixy+ip1]          = ROOT.TH2F("h_"+ixy+"_"+ip0+"v"+ip1,
-                                                                 "h_"+ixy+"_"+ip0+"v"+ip1, 
+                                                                 "h_"+ixy+"_"+ip0+"v"+ip1,
                                                                  400, -100., 100., 400, -100., 100.)
                 hist[ixy+ip0+"_v_"+ixy+ip1, "clean"] = ROOT.TH2F("h_"+ixy+"_"+ip0+"v"+ip1+"_clean",
-                                                                 "h_"+ixy+"_"+ip0+"v"+ip1+"_clean", 
+                                                                 "h_"+ixy+"_"+ip0+"v"+ip1+"_clean",
                                                                  400, -100., 100., 400, -100., 100.)
 
 hist["dx_BC"] = ROOT.TH1F("h_dx_BC", "h_dx_BC", 400, -100., 100.)
@@ -352,17 +360,6 @@ hist["dx_AC", "clean"] = ROOT.TH1F("h_dx_AC_clean", "h_dx_AC_clean", 400, -100.,
 hist["dy_AC", "clean"] = ROOT.TH1F("h_dy_AC_clean", "h_dy_AC_clean", 400, -100., 100.)
 #hist["dx_AE", "clean"] = ROOT.TH1F("h_dx_AE_clean", "h_dx_AE_clean", 400, -100., 100.)
 #hist["dy_AE", "clean"] = ROOT.TH1F("h_dy_AE_clean", "h_dy_AE_clean", 400, -100., 100.)
-
-# Trigger phase 
-ntp["time"].GetEvent(1)
-trigPhase = tvar["ttcL1Atime"][0]-tvar["triggerTime"][0]
-hist["trigPhase"] = ROOT.TH1F("trigPhase", "trigPhase", 500, trigPhase-50., trigPhase+50.)
-
-# Particle ID stuff (PID)
-hist["pid"]        = ROOT.TH1F("pid", "pid",       3,  0.5, 3.5) # 1 = muon, 2 = pion, 3 = electron
-hist["nPass"]      = ROOT.TH1F("nPass", "nPass",   7, -0.5, 6.5)
-hist["frac19_5_2"] = ROOT.TH1F("frac19_5_2", "frac19_5_2", 100, 0.0, 1.0) 
-
 
 
 # QIE11 histograms
@@ -387,36 +384,25 @@ for ichan in chanlist:
     hist["TDC" , ichan]          = ROOT.TH1F("TDC_"          +label, "TDC_"          +label, 1001, -0.5, 1000.5) # 0 = start of TS3, 75 is end of TS5
 
 
+    hist["trigPhase" , ichan]        = ROOT.TH1F("trigPhase_" +label, "trigPhase_" +label, 500, 1000., 1050.)
+    hist["time_v_trigPhase" , ichan] = ROOT.TH2F("time_v_trigPhase_" +label, "time_v_trigPhase_" +label, 251, -75.5,  175.5,   500, 1000., 1050.)
 
 
-    hist["time_v_trigPhase" , ichan] = ROOT.TH2F("time_v_trigPhase_" +label, "time_v_trigPhase_" +label, 251, -75.5,  175.5,   500, trigPhase-50., trigPhase+50.)
 
 for depth in valid_depth:
-
-    valid_ieta_max = valid_ieta[-1]
-    valid_ieta_min = valid_ieta[0]
-    valid_iphi_max = valid_iphi[-1]
-    valid_iphi_min = valid_iphi[0]
-
-    if valid_ieta_max - valid_ieta_min < 8:  valid_ieta_max = valid_ieta_min + 8 
-    if valid_iphi_max - valid_iphi_min < 8:  valid_iphi_max = valid_iphi_min + 8
-
-    valid_depth_max = valid_depth[-1]
-    valid_depth_min = valid_depth[0]
-
-    hist["e_4TS_etaphi",depth] = ROOT.TProfile2D("Energy_Avg_depth"+str(depth),"Average Energy per event in each ieta,iphi for depth "+str(depth), 
-                                                 (valid_ieta_max - valid_ieta_min)+3, valid_ieta_min-1.5, valid_ieta_max+1.5, 
-                                                 (valid_iphi_max - valid_iphi_min)+3, valid_iphi_min-1.5, valid_iphi_max+1.5)
-    hist["occupancy_event_etaphi",depth] = ROOT.TH2F("Occ_Event_depth_"+str(depth),"Fraction of Events with a hit in each ieta,iphi for depth "+str(depth), 
-                                                     (valid_ieta_max - valid_ieta_min)+3, valid_ieta_min-1.5, valid_ieta_max+1.5,
-                                                     (valid_iphi_max - valid_iphi_min)+3, valid_iphi_min-1.5, valid_iphi_max+1.5)
+    hist["e_4TS_etaphi",depth] = ROOT.TProfile2D("Energy_Avg_depth"+str(depth),"Average Energy per event in each ieta,iphi for depth "+str(depth),
+                                                 (valid_ieta[-1] - valid_ieta[0])+3, valid_ieta[0]-1.5, valid_ieta[-1]+1.5,
+                                                 (valid_iphi[-1] - valid_iphi[0])+3, valid_iphi[0]-1.5, valid_iphi[-1]+1.5)
+    hist["occupancy_event_etaphi",depth] = ROOT.TH2F("Occ_Event_depth_"+str(depth),"Fraction of Events with a hit in each ieta,iphi for depth "+str(depth),
+                                                     (valid_ieta[-1] - valid_ieta[0])+3, valid_ieta[0]-1.5, valid_ieta[-1]+1.5,
+                                                     (valid_iphi[-1] - valid_iphi[0])+3, valid_iphi[0]-1.5, valid_iphi[-1]+1.5)
 
 for iphi in valid_iphi:
-    hist["e_4TS_etadepth",iphi] = ROOT.TProfile2D("Energy_Avg_phi"+str(iphi),"Average Energy per event in each ieta,depth for iphi "+str(iphi), 
-                                                  (valid_ieta_max - valid_ieta_min)+3, valid_ieta_min-1.5, valid_ieta_max+1.5, 
-                                                  (valid_depth_max - valid_depth_min)+3, valid_depth_min-1.5, valid_depth_max+1.5)
+    hist["e_4TS_etadepth",iphi] = ROOT.TProfile2D("Energy_Avg_phi"+str(iphi),"Average Energy per event in each ieta,depth for iphi "+str(iphi),
+                                                  (valid_ieta[-1] - valid_ieta[0])+3, valid_ieta[0]-1.5, valid_ieta[-1]+1.5,
+                                                  (valid_depth[-1] - valid_depth[0])+3, valid_depth[0]-1.5, valid_depth[-1]+1.5)
 
-    
+
 #Plot average 4TS energy sum (z-axis) in plane of track coords from WC C
 for ichan in chanlist:
     ieta = chanmap[ichan][0]
@@ -439,7 +425,7 @@ for ichan in chanlist:
 #                                              4002,  -0.5, 2000.5)
 
 esum = {}
-        
+
 ####################################################
 # Event Loop
 ####################################################
@@ -447,6 +433,7 @@ esum = {}
 fillEplots = True
 
 print "Run %5i has %7i total events. " % (runnum, nevts)
+if evd: evdFile.write("%i %i\n" % (runnum, nevts))
 
 # Run over all events starting from event 'start'
 nevts_to_run = nevts - start
@@ -454,16 +441,14 @@ nevts_to_run = nevts - start
 if nevents != -1 and nevents <= (nevts - start):
     nevts_to_run = nevents
 
-print "Processing ",nevts_to_run," events."    
+trigPhaseCount = 0
+
+print "Processing ",nevts_to_run," events."
 for ievt in xrange(start, start + nevts_to_run):
     if (ievt+1) % 1000 == 0: print "Processing Run %5i Event %7i" % (runnum, (ievt+1))
 
-    #########################
-    # Trigger time
-    #########################
-    ntp["time"].GetEvent(ievt)
-    trigPhase = tvar["ttcL1Atime"][0]-tvar["triggerTime"][0]
-    hist["trigPhase"].Fill(trigPhase)
+    # Evd event number
+    if evd: evdFile.write("%i\n" % ievt)
 
     #######################
     # WC Analysis
@@ -494,13 +479,13 @@ for ievt in xrange(start, start + nevts_to_run):
 
     #clean = False  #This is commented to be able to run analysis over LED runs
     clean = True
-    if has["ABC"]: 
+    if has["ABC"]:
         xA = vec["xA"].at(0); yA = vec["yA"].at(0)
         xB = vec["xB"].at(0); yB = vec["yB"].at(0)
         xC = vec["xC"].at(0); yC = vec["yC"].at(0)
         #xD = vec["xD"].at(0); yD = vec["yD"].at(0)
         #xE = -1.*vec["xE"].at(0); yE = vec["yE"].at(0)
-        
+
         hist["dx_BC"].Fill(xB-xC)
         hist["dy_BC"].Fill(yB-yC)
         hist["dx_AC"].Fill(xA-xC)
@@ -510,7 +495,7 @@ for ievt in xrange(start, start + nevts_to_run):
 
         passXBCp = False; passXBCm = False; passYBCp = False; passYBCm = False;
         passXACp = False; passXACm = False; passYACp = False; passYACm = False;
-        
+
         if xB-xC < wc_res["x", "BC", "mean"]+sigma_thold*wc_res["x", "BC", "rms" ]: passXBCp = True
         if xB-xC > wc_res["x", "BC", "mean"]-sigma_thold*wc_res["x", "BC", "rms" ]: passXBCm = True
         if yB-yC < wc_res["y", "BC", "mean"]+sigma_thold*wc_res["y", "BC", "rms" ]: passYBCp = True
@@ -538,10 +523,10 @@ for ievt in xrange(start, start + nevts_to_run):
             hist["dy_AC", "clean"].Fill(yA-yC)
             #hist["dx_AE", "clean"].Fill(xA-xE)
             #hist["dy_AE", "clean"].Fill(yA-yE)
-        
 
 
-    # Select events with straight tracks by requiring that 
+
+    # Select events with straight tracks by requiring that
     # events have one and only one x hit and 1-and-only-1 y hit in WC A, B, C, E
     # and events are within N standard deviations of xWC1 - xWC2 residuals
 
@@ -551,31 +536,31 @@ for ievt in xrange(start, start + nevts_to_run):
     # Fill histograms
     ########################
     for iwc in wcList:
-        if has[iwc] and vec["x"+refchamb].size() and vec["y"+refchamb].size(): 
+        if has[iwc] and vec["x"+refchamb].size() and vec["y"+refchamb].size():
             x = adjust["x", iwc, runnum]*vec["x"+iwc].at(0)
             y = adjust["y", iwc, runnum]*vec["y"+iwc].at(0)
             hist["x"+iwc+"_v_y"+iwc].Fill(x, y)   # x vs y within WC
             hist["x"+iwc]           .Fill(x) # x within WC
             hist["y"+iwc]           .Fill(y) # y within WC
-            if clean: 
+            if clean:
                 hist["x"+iwc+"_v_y"+iwc, "clean"].Fill(x, y) # x vs y within WC
                 hist["x"+iwc, "clean"]           .Fill(x) # x within WC
                 hist["y"+iwc, "clean"]           .Fill(y) # y within WC
 
         for ip1 in wcList:
             if not has[iwc] or not has[ip1]: continue
-            if ((iwc == "A" and ip1 == "B") or (iwc == "A" and ip1 == "C") or (iwc == "A" and ip1 == "D") or (iwc == "A" and ip1 == "E") or 
+            if ((iwc == "A" and ip1 == "B") or (iwc == "A" and ip1 == "C") or (iwc == "A" and ip1 == "D") or (iwc == "A" and ip1 == "E") or
                 (iwc == "B" and ip1 == "C") or (iwc == "B" and ip1 == "D") or (iwc == "B" and ip1 == "E") or
                 (iwc == "C" and ip1 == "D") or (iwc == "C" and ip1 == "E") or
                 (iwc == "D" and ip1 == "E")):
-                
+
                 for ixy in ["x", "y"]:
                     xy_iwc = adjust[ixy, iwc, runnum]*vec[ixy+iwc].at(0)
                     xy_ip1 = adjust[ixy, ip1, runnum]*vec[ixy+ip1].at(0)
-                    
+
                     hist[ixy+iwc+"_v_"+ixy+ip1].Fill(xy_iwc, xy_ip1) # xWC1 vs xWC2 and yWC1 vs yWC2
                     if clean: hist[ixy+iwc+"_v_"+ixy+ip1, "clean"].Fill(xy_iwc, xy_ip1) # xWC1 vs xWC2 and yWC1 vs yWC2
-                        
+
 
     # Check if beam is within edges of sample
     isIn = {}
@@ -587,40 +572,52 @@ for ievt in xrange(start, start + nevts_to_run):
         	yH = edges[ichan, runnum][3]
         	ix = adjust["x", refchamb, runnum]*vec["x"+refchamb].at(0)
         	iy = adjust["y", refchamb, runnum]*vec["y"+refchamb].at(0)
-        	if ix<xH and ix>xL and iy<yH and iy>yL: 
+        	if ix<xH and ix>xL and iy<yH and iy>yL:
             		isIn[ichan] = True
         	else:
             		isIn[ichan] = False
             	if isIn[ichan]: wc_counts["nIn", ichan] += 1.
- 
+
+    ########################
+    # Trigger time
+    ########################
+    ntp["time"].GetEvent(ievt)
+    trigPhase = tvar["ttcL1Atime"][0]-tvar["triggerTime"][0]
+    hist["trigPhase" , ichan].Fill(trigPhase)
+    #    if trigPhaseCount < 1000:
+    #        print "trigPhase = ", trigPhase
+    #        trigPhaseCount += 1
+
+
+
     #######################
     # QIE Analysis
     #######################
     ntp["hbhe"].GetEvent(ievt)
     ntp["qie11"].GetEvent(ievt)
 
-    # Find the channels 
+    # Find the channels
     ########################
-    
+
     # ichan is the channel number (a single integer index) defined in tb_chanmap.py
     # corresponding to a specific ieta,iphi,depth.
     #
     # chanlist contains a list of the channel numbers to process.
-    
+
     # create chansToFind, a list of [(ieta1,iphi1,depth1), (ieta2,iphi2,depth2), ...]
     # for processing
-    
+
     chansToFind = []
     for ichan in chanlist: chansToFind.append(chanmap[ichan])
 
     if verbose: print "chansToFind:", chansToFind
-    
+
     # rchan is the channel number associated with (ieta,iphi,depth) in the data
     # rchan probably doesn't equal ichan, which is just an index
 
     # By matching (ieta,iphi,depth), we create a mapping of fchan[ichan] = rchan
-    # fchan contains the found channels    
-            
+    # fchan contains the found channels
+
     isPhase1 = {}
     fchan = {}
     fread = {}
@@ -640,16 +637,16 @@ for ievt in xrange(start, start + nevts_to_run):
 	    #fread[rchan] = sqie11
             fread[test_chan] = sqie11
             isPhase1[test_chan] = True
-    
+
     if verbose:
         print "fchan:", fchan
 
     # these are the (ieta,iphi,depth) that we expected to find
     # (from chanlist/chanmap) that never appeared in the data
-    
+
     #if len(chansToFind) > 0:
     #    print "Did not find channels ", chansToFind
-        
+
     # Skip events with anomalously large pulses
     clean = True
     #for rchan in fchan.itervalues():
@@ -658,7 +655,7 @@ for ievt in xrange(start, start + nevts_to_run):
     #            clean = False
     #            break
     #    #for its in range(8,10): #for now, only check highest two ts (8-9)
-    #    #    if fread[rchan].pulse[rchan*MAXTS+its] > 90: 
+    #    #    if fread[rchan].pulse[rchan*MAXTS+its] > 90:
     #    #        clean = False
     #    #        break
     #if not clean: continue
@@ -671,24 +668,12 @@ for ievt in xrange(start, start + nevts_to_run):
     #            break
     #if not clean: continue
 
-    charge = {} 
-    energy = {}   
+    charge = {}
+    energy = {}
     tdc    = {}
 
-    # PID variables
-    ################
-    e19_5 = {} # dictionary for holding energies of depths in tower ieta19, iphi5
-    for idep in range(2,7):
-        e19_5[idep] = 0.
-
-    showerE = 0.  # shower energy
-    showerChans = []  # channels in which to sum shower energy
-    for ieta in range(17,20):
-        for idep in range(2,7):
-            showerChans.append((ieta, 5, idep))
-            
-        
     for ichan,rchan in fchan.iteritems():
+
         ieta, iphi, depth = chanmap[ichan]
 
         if verbose:
@@ -712,11 +697,11 @@ for ievt in xrange(start, start + nevts_to_run):
             print "charge: ", ",".join([str(charge[ichan,its]) for its in xrange(nts)])
 
         # Pedestals are stored in the output for h2testbeamanalyzer
-        #ped_ts_list = [0,1,2]   #time samples in which to sum charge for pedestals (0-2)    
+        #ped_ts_list = [0,1,2]   #time samples in which to sum charge for pedestals (0-2)
         #ped_esum = 0.
-        #for its in ped_ts_list:   
+        #for its in ped_ts_list:
         #    ped_esum += energy[ichan,its]
-        #ped_avg = ped_esum/len(ped_ts_list)    
+        #ped_avg = ped_esum/len(ped_ts_list)
         esum[ichan, "PED"] = fread[(ieta,iphi,depth)].ped[rchan]*calib[ichan]
         esum[ichan, "PED_ADC"] = fread[(ieta,iphi,depth)].ped_adc[rchan]
 
@@ -728,22 +713,15 @@ for ievt in xrange(start, start + nevts_to_run):
         ts_list = xrange(3,3+sigTS) # [3,4,5,6,7,8,9]   #time samples in which to sum charge for signal
         sig_esum = 0.
         sig_esum_ps = 0.
-        for its in ts_list:  
+        for its in ts_list:
             if adc:
                 sig_esum    += charge_adc[ichan,its]
-                sig_esum_ps += charge_adc[ichan,its] - esum[ichan, "PED_ADC"]  #pedestal-subtracted energy  
+                sig_esum_ps += charge_adc[ichan,its] - esum[ichan, "PED_ADC"]  #pedestal-subtracted energy
             else:
                 sig_esum    += energy[ichan,its]
-                sig_esum_ps += energy[ichan,its] - esum[ichan, "PED"]  #pedestal-subtracted energy  
+                sig_esum_ps += energy[ichan,its] - esum[ichan, "PED"]  #pedestal-subtracted energy
         esum[ichan, "4TS_noPS"] = sig_esum
-        esum[ichan, "4TS_PS"] = sig_esum_ps          
-        
-        # fill pid vars
-        if (ieta,iphi,depth) in showerChans:
-            showerE += esum[ichan, "4TS_PS"]
-            
-        if ieta == 19 and iphi == 5 and depth in range(2,7):
-            e19_5[depth] = esum[ichan, "4TS_PS"]
+        esum[ichan, "4TS_PS"] = sig_esum_ps
 
         # Fill histograms
         ####################
@@ -760,7 +738,7 @@ for ievt in xrange(start, start + nevts_to_run):
 
 
         # Fill pulse shape plot
-        if fillEplots: 
+        if fillEplots:
             for its in range(10):
                 hist["avgpulse", ichan].Fill(its,energy[ichan,its])
 
@@ -769,7 +747,7 @@ for ievt in xrange(start, start + nevts_to_run):
 
         # Fill 4TS pedestal-corrected energy sum plot
         if fillEplots: hist["e_4TS_PS", ichan].Fill(esum[ichan, "4TS_PS"])
-        
+
         # Fill time vs. charge plots
         if fillEplots and isPhase1[(ieta,iphi,depth)]:
             time  = 0.
@@ -791,22 +769,26 @@ for ievt in xrange(start, start + nevts_to_run):
                 etime_ts += its * charge[ichan,its]/esum10  # E-weighted time in units of TS
             # convert to units of ns since start of TS3
             etime = 25.*(etime_ts-3.)
-            
+
             if tsoi > 0:
                 hist["time_v_charge", ichan].Fill(charge[ichan,its], time)
                 hist["time", ichan]  .Fill(time)
                 hist["time_v_etime" , ichan].Fill(etime, time)
                 hist["time_v_trigPhase" , ichan].Fill(time, trigPhase)
-                
+
         # Fill energy profile in ieta, iphi
-        if fillEplots:            
+        if fillEplots:
             ieta = chanmap[ichan][0]
             iphi = chanmap[ichan][1]
             depth = chanmap[ichan][2]
             hist["e_4TS_etaphi", depth].Fill(ieta, iphi, esum[ichan, "4TS_PS"])
             hist["e_4TS_etadepth", iphi].Fill(ieta, depth, esum[ichan, "4TS_PS"])
             hist["occupancy_event_etaphi", depth].Fill(ieta,iphi,1./nevts)  #a bit ugly
-            
+
+            if evd: evdFile.write("ieta:%d_iphi:%d_depth:%i %d\n" % (ieta, iphi, depth, esum[ichan, "4TS_PS"]))
+
+
+
             x_25=0
             y_25=0
             # Fill plot of wire chamber position for events with sufficient energy
@@ -818,7 +800,7 @@ for ievt in xrange(start, start + nevts_to_run):
                 hist["e_wcC_y", ichan].Fill(y)
                 x_25 = adjust["x", refchamb, runnum]*vec["x"+refchamb].at(0)
                 y_25 = adjust["y", refchamb, runnum]*vec["y"+refchamb].at(0)
-            
+
             # Fill plot of wire chamber position for all events added by Abdollah
             if esum[ichan, "4TS_PS"]>-100000 and vec["x"+refchamb].size() and vec["y"+refchamb].size(): # Fill all events
                 x = adjust["x", refchamb, runnum]*vec["x"+refchamb].at(0)
@@ -826,31 +808,6 @@ for ievt in xrange(start, start + nevts_to_run):
                 hist["e_wcC_noTScut"  , ichan].Fill(x,y)
                 hist["e_wcC_x_noTScut", ichan].Fill(x)
                 hist["e_wcC_y_noTScut", ichan].Fill(y)
-    
-    # Do PID
-    ##############
-    isMuon = False; 
-    isElectron = False; 
-
-    # muon
-    nPass = 0
-    for idep in range(2,7):
-        if shunt == 6:
-            if e19_5[idep] > 20. and e19_5[idep] < 600.: nPass += 1
-        elif shunt == 1:
-            if e19_5[idep] > 120. and e19_5[idep] < 3600.: nPass += 1
-
-    if nPass >= 4: isMuon = True
-
-    #electron
-    if not isMuon and e19_5[2]/showerE > 0.9: isElectron = True
-
-    if isMuon       : hist["pid"].Fill(1)
-    elif isElectron : hist["pid"].Fill(2)
-    else            : hist["pid"].Fill(3)
-
-    hist["nPass"].Fill(nPass)
-    hist["frac19_5_2"].Fill(e19_5[2]/showerE)
 
 ###Sort the histograms
 SortedHist = outtfile.mkdir("SortedHist")
@@ -903,9 +860,6 @@ for key,val in hist.items():
 
 outtfile.cd()
 
-
-        
-
 #
 #print "Fraction of events with N hits in each WC view"
 #print "============================================================"
@@ -951,3 +905,4 @@ outtfile.Write()
 outtfile.Close()
 
 print "Finished Run %5i." % runnum
+
