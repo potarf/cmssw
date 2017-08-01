@@ -364,7 +364,7 @@ for fileName in processFileList:
     if do_tb_ana:
         writeout(LEV4,">> Stage 2: Running Analyzer (tb_ana) for Run %s" % runNum)
         subprocess.check_call(["rm", "-f", ana2])
-        command = ["python", "-u", "tb_ana.py", "--i", ana, "--o", ana2 + ".tmp", "--r", str(int(runNum)),"-e",emapFileShort,"--shunt",shuntSetting]
+        command = ["python", "-u", "tb_ana.py", "--i", ana, "--o", ana2 + ".tmp", "--r", str(int(runNum)),"-e",emapFileShort,"--shunt",shuntSetting, "--EVD"]
         writeout(LEV4,">> Executing \"%s\"" % " ".join(command))
         subprocess.check_call(command)
         os.rename(ana2 + ".tmp", ana2)

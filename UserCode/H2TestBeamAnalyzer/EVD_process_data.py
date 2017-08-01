@@ -175,11 +175,14 @@ for layereta, depth in layer_to_depth.iteritems():
 import re
 import numpy as np
 from pprint import pprint
+import sys
 
-stops  = [ 0.00, 0.34, 0.61, 0.84, 1.00 ]
-red    = [ 0.00, 0.00, 0.87, 1.00, 0.51 ]
-green  = [ 0.00, 0.81, 1.00, 0.20, 0.00 ]
-blue   = [ 0.51, 1.00, 0.12, 0.00, 0.00 ]
+runnum = sys.argv[1]
+stops  = [ 0.00, 0.10, 0.30, 0.65, 0.85, 1.00 ]
+red    = [ 0.00, 0.00, 0.87, 0.80, 1.00, 1.00 ]
+green  = [ 0.00, 0.81, 1.00, 0.20, 0.65, 0.00 ]
+blue   = [ 0.50, 1.00, 0.12, 0.00, 0.00, 0.00 ]
+
 
 def color1interp(value, colorbin, color):
     return np.interp(value, [stops[colorbin], stops[colorbin + 1]], [color[colorbin], color[colorbin + 1]]) * 255
@@ -189,11 +192,14 @@ def colorInterp(v, minvalue, maxvalue):
     value = np.interp(v, [minvalue, maxvalue], [0.00, 1.00])
     colorbin = 0
     for i in xrange(len(stops) - 1):
-        if value < stops[colorbin + 1] and value > stops[colorbin]: break
+        if value >= stops[i] and value <= stops[i + 1]:
+            colorbin = i
+            break
+
     return color3interp(value, colorbin)
 
 
-with open("EVD3274.txt", 'r') as infile:
+with open("EVD%s.txt" % runnum, 'r') as infile:
 
      head = infile.readline()
      runnum, numevents = head.split()
